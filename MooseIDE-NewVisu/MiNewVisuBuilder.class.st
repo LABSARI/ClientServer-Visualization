@@ -372,8 +372,11 @@ MiNewVisuBuilder >> serverDCR [
 			  cli do: [ :e | 
 				  allEntities
 					  at: e
-					  ifPresent: [ :n | i dependencyTo: n  ]
-					  ifAbsent: [ sdcr add: (self buildNodeFromEntity: e) ] ] ].
+					  ifPresent: [ :n | i dependencyTo: n ]
+					  ifAbsent: [ 
+						  | newNode |
+						  i dependencyTo: (newNode := self buildNodeFromEntity: e).
+						  sdcr add: newNode ] ] ].
 		  serverDCR := sdcr asOrderedCollection ]
 ]
 
