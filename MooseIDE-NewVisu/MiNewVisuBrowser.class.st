@@ -34,7 +34,7 @@ MiNewVisuBrowser >> canFollowEntity: anObject [
 { #category : #actions }
 MiNewVisuBrowser >> followEntity: anEntity [
 
-	model entities: (anEntity select: [ :e | 
+	model entities: (anEntity asMooseGroup select: [ :e | 
 			 e isClass and: [ 
 				 (e superclassHierarchy anySatisfy: [ :c | 
 					  c name = 'RemoteService' ]) and: [ e isStub not ] ] ]).

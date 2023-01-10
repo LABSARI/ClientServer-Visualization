@@ -22,7 +22,6 @@ MiNewVisu >> model [
 
 { #category : #highlighting }
 MiNewVisu >> run [
-
 	builder := MiNewVisuBuilder new
 		           mapModel: self model;
 		           container: self canvas;
