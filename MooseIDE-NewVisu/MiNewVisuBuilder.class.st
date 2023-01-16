@@ -13,7 +13,9 @@ Class {
 		'serverPackages',
 		'clientPackages',
 		'clientNodes',
-		'serverNodes'
+		'serverNodes',
+		'highlightShapes',
+		'scale'
 	],
 	#category : #'MooseIDE-NewVisu'
 }
@@ -31,17 +33,91 @@ MiNewVisuBuilder >> appServiceUID [
 ]
 
 { #category : #building }
+MiNewVisuBuilder >> boxChildrenColorFor: anHNode [
+
+	^ Color fromHexString: 'CCCCCC'
+]
+
+{ #category : #building }
 MiNewVisuBuilder >> build [
 
 	rootNode := HNode new.
+		rootNode addAll: self implementations.
+	rootNode addAll: self serverPackages.
 	rootNode addAll: self services.
 	rootNode addAll: self clientPackages.
-	rootNode addAll: self implementations.
-	rootNode addAll: self serverPackages.
 	"self setServerDCRDependencies"
+	self setClientServerDependencies.
 	self setAppServiceUIDDependencies.
 	self renderIn: self container.
 	^ self container
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> buildClientPackageShape: package [
+
+	| childrenShapes node titleGroup title titleBox children boxChildren titleRadius boxChildrenRadius list shape |
+	shape := RSComposite new
+		         model: package;
+		         color: Color transparent;
+		         yourself.
+	shape border: (RSBorder new
+			 width: 2;
+			 capSquare;
+			 joinMiter;
+			 color: Smalltalk ui theme textColor;
+			 dashArray: #( 5 );
+			 yourself).
+	node := package.
+	titleGroup := self nodeStyler labelAndIconFor: node.
+	titleBox := RSBox new
+		            extent: titleGroup extent + 10;
+		            color: (self container color);
+		            position: titleGroup position;
+		            yourself.
+	title := RSComposite new
+		         add: titleBox;
+		         addAll: titleGroup;
+		         adjustToChildren;
+		         yourself.
+	shape propertyAt: #background put: titleBox.
+	childrenShapes := self childrenFor: node.
+	RSHorizontalLineLayout new on: childrenShapes.
+
+	shape schildren: childrenShapes.
+	childrenShapes do: [ :child | child sparent: shape ].
+	children := childrenShapes asShape padding: 10.
+	childrenShapes do: [ :child | child model position: child position ].
+	title width < children width
+		ifTrue: [ 
+			titleBox width: children width.
+			title adjustToChildren ]
+		ifFalse: [ children width: title width ].
+	boxChildren := self boxChildrenFor: node.
+	titleRadius := self topCornerRadius.
+	boxChildrenRadius := self bottomCornerRadius.
+	list := { 
+		        title.
+		        children }.
+	self nodeStyler position = #below ifTrue: [ 
+		titleRadius := self bottomCornerRadius.
+		boxChildrenRadius := self topCornerRadius.
+		list := { 
+			        children.
+			        title } ].
+	RSVerticalLineLayout new
+		gapSize: 0;
+		on: list.
+	titleBox cornerRadius: titleRadius.
+	boxChildren
+		cornerRadius: boxChildrenRadius;
+		fromRectangle: children encompassingRectangle.
+
+	shape
+		add: title;
+		add: children.
+	shape adjustToChildren.
+	^ shape
 ]
 
 { #category : #building }
@@ -104,7 +180,7 @@ MiNewVisuBuilder >> buildNodeFromEntity: anEntity in: aDict [
 { #category : #building }
 MiNewVisuBuilder >> buildShapes [
 
-	| servicesShapes layout width implementationsShapes allShapes clientsShapes clients2Shapes clientShape serverDCRShapes serverShape clientLabel serverLabel |
+	| servicesShapes layout width implementationsShapes allShapes clientsShapes clientShape serverDCRShapes serverShape clientLabel serverLabel subClientShapes |
 	clientLabel := RSComposite new
 		               add: (RSLabel new
 				                text: 'Client side';
@@ -136,10 +212,15 @@ MiNewVisuBuilder >> buildShapes [
 		                  (self shapeFor: s) sparent: self container ]
 		                  as: RSGroup.
 	clientsShapes := self clientPackages
-		                 collect: [ :s |
-								s expand.
-		                 (self shapeFor: s) sparent: self container ]
+		                 collect: [ :s | 
+			                 (self shapeFor: s) sparent: self container ]
 		                 as: RSGroup.
+	clientsShapes sort: [ :a :b | a model name < b model name ].
+	subClientShapes := clientsShapes flatCollect: [ :cs | 
+		                   cs allChildren select: [ :s | 
+			                   s isComposite and: [ s model notNil ] ] ].
+	
+	
 	implementationsShapes := self implementations
 		                         collect: [ :s | 
 		                         (self shapeFor: s) sparent: self container ]
@@ -163,7 +244,7 @@ MiNewVisuBuilder >> buildShapes [
 		                   collect: [ :s | 
 		                   (self shapeFor: s) sparent: self container ]
 		                   as: RSGroup.
-
+	serverDCRShapes sort: [ :a :b | a model name < b model name ].
 	"(serverDCRShapes detect: [ :s | s model name = 'AppServiceUID' ]) 
 		ifNotNil: [ :s | 
 			s border: (RSBorder new
@@ -175,19 +256,25 @@ MiNewVisuBuilder >> buildShapes [
 	RSFlowLayout new on: serverDCRShapes.
 
 	width := (servicesShapes collect: #width) max.
-	servicesShapes do: [ :s | s width: width ].
+	servicesShapes do: [ :s | 
+		s children first width: width.
+		s adjustToChildren ].
 
 	width := (implementationsShapes collect: #width) max.
-	implementationsShapes do: [ :s | s width: width ].
+	implementationsShapes do: [ :s | 
+		s children first width: width.
+		s adjustToChildren ].
 
-	width := (clientsShapes collect: #width) max.
-	clientsShapes do: [ :s | s width: width ].
+	"width := (clientsShapes collect: #width) max.
+	clientsShapes do: [ :s | s width: width ]."
 
 	"width := (clients2Shapes collect: #width) max.
 	clients2Shapes do: [ :s | s width: width ]."
 
 	layout on: servicesShapes.
-	layout on: clientsShapes.
+	RSFlowLayout new
+		gapSize: 10;
+		on: clientsShapes.
 	"	layout on: clients2Shapes."
 	layout on: implementationsShapes.
 
@@ -268,7 +355,7 @@ MiNewVisuBuilder >> clientNodesFor: anHNode [
 
 	| node cl |
 	node := anHNode rawModel.
-	cl := node incomingReferences collectAsSet: [ :r | r source ].
+	cl := node incomingReferences collectAsSet: [ :r | self rootClass: r source ].
 
 	^ cl collect: [ :c | self buildNodeFromEntity: c ]
 ]
@@ -300,7 +387,22 @@ MiNewVisuBuilder >> clients [
 
 { #category : #building }
 MiNewVisuBuilder >> colorFor: node [
-	^ Color fromHexString: '7FC6F6'
+
+	(node rawModel isClass and: [ 
+		 node parent rawModel notNil and: [ 
+			 node parent rawModel isPackage and: [ 
+				 clientNodes
+					 at: node rawModel
+					 ifPresent: [ true ]
+					 ifAbsent: [ false ] ] ] ]) ifTrue: [ 
+		^ scale scale:
+			  (node rawModel incomingReferences collectAsSet: [ :c | 
+				   self rootClass: c source ]) size + 1 ].
+	mapModel shouldColor ifFalse: [ ^ Color fromHexString: '7FC6F6' ].
+
+	^ (node rawModel mooseName includesSubstring: '::client')
+		  ifTrue: [ Color fromHexString: '7FC6F6' ]
+		  ifFalse: [ Color fromHexString: 'FFABA3' ]
 ]
 
 { #category : #building }
@@ -374,6 +476,38 @@ MiNewVisuBuilder >> highlightable [
 ]
 
 { #category : #building }
+MiNewVisuBuilder >> highlightableLinkedShapes [
+
+	^ highlightShapes ifNil: [ 
+		  highlightShapes := RSHighlightable new
+			                     highlightShapes: [ :shape | 
+				                     | list |
+				                     list := Set new.
+				                     shape connectedLines do: [ :line | 
+						                     shape = line from
+							                     ifTrue: [ 
+								                     list add:
+										                     (line to propertyAt: #background) ]
+							                     ifFalse: [ 
+								                     list add:
+										                     (line from propertyAt: #background) ] ].
+				                     list asOrderedCollection ];
+			                     when: RSHighlightEvent do: [ :evt | 
+				                     | color |
+				                     color := Color fromHexString: '9DD0B3'.
+				                     highlightable
+					                     record: evt shape
+					                     selector: #color
+					                     value: color ];
+			                     when: RSUnHighlightEvent
+			                     do: [ :evt | 
+				                     highlightable
+					                     restore: evt shape
+					                     selector: #color ];
+			                     yourself ]
+]
+
+{ #category : #building }
 MiNewVisuBuilder >> implementations [
 
 	^ implementations ifNil: [ 
@@ -393,9 +527,15 @@ MiNewVisuBuilder >> initialize [
 
 	super initialize.
 	self nodeStyler fontSize: 16.
+	self nodeStyler popup text: [ :e | e rawModel mooseName copyReplaceAll: '::' with: '.' ].
 	allEntities := Dictionary new.
 	clientNodes := Dictionary new.
-	serverNodes := Dictionary new
+	serverNodes := Dictionary new.
+	scale := NSScale pow
+		         domain: #( 1 500 );
+		         range: { 
+				         Color white.
+				         (Color fromHexString: '40004B') }.
 ]
 
 { #category : #accessing }
@@ -408,6 +548,29 @@ MiNewVisuBuilder >> mapModel [
 MiNewVisuBuilder >> mapModel: anObject [
 
 	mapModel := anObject
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> nodeAnnouncer [
+
+	"plug new events here"
+
+	baseNode ifNotNil: [ ^ baseNode announcer ].
+	baseNode := RSComposite new
+		            @ self nodeStyler popup;
+		            @
+			            (HGhostDraggable new color:
+					             Smalltalk ui theme caretColor);
+		            @ self menuInteraction;
+		            @ self highlightable;
+		            @ self highlightableLinkedShapes;
+		            @ RSNodeOnTopWhenPositionChanged new;
+		            @ HUpdateSelectionBox new;
+		            @
+			            (HResizeParentWhenChildMoves new nodeStyler:
+					             self nodeStyler);
+		            yourself.
+	^ baseNode announcer
 ]
 
 { #category : #accessing }
@@ -442,6 +605,21 @@ MiNewVisuBuilder >> renderLinesIn: aCanvas [
 		line announcer: announcer.
 		f := line from model rawModel.
 		t := line to model rawModel.
+
+		"((f mooseName includesSubstring: '::client') and: [ 
+			 (t mooseName includesSubstring: '::client') not ]) ifTrue: [ 
+			line
+				width: 3;
+				color: Color magenta ].
+"
+"	
+	(((self serverPackages collect: #rawModel) includes: f) and: [ (f mooseName includesSubstring: '::client' )
+	and: [( (self clientPackages collect: #rawModel) includes: t) and: [ (t mooseName includesSubstring: '::client') not ] ] ]) ifTrue: [ 	line
+				width: 3;
+				color: Color green muchDarker  ].
+	"
+	
+	
 		(f isMooseEntity & t isMooseEntity and: [ 
 			 f isClass & t isClass and: [ 
 				 (f superclassHierarchy anySatisfy: [ :c | 
@@ -468,16 +646,22 @@ MiNewVisuBuilder >> serverDCR [
 		  sdcr := Set new.
 		  self implementations do: [ :i | 
 			  | cli |
-			  cli := ((i rawModel query: #out with: FamixTReference)
-				          collect: [ :c | self rootClass: c target ]
-				          thenReject: #isStub) asSet.
+			  cli := i rawModel allProviders
+				         reject: [ :c | 
+					         c isStub or: [ 
+						         c isClass and: [ 
+							         c superclassHierarchy anySatisfy: [ :sc | 
+								         sc name = 'RemoteServiceServlet' or: [ 
+									         sc name = 'RemoteService' ] ] ] ] ]
+				         thenCollect: [ :e | self rootClass: e ].
 			  cli do: [ :e | 
-				  allEntities
+				  serverNodes
 					  at: e
 					  ifPresent: [ :n | i dependencyTo: n ]
 					  ifAbsent: [ 
 						  | newNode |
-						  i dependencyTo: (newNode := self buildNodeFromEntity: e in: serverNodes).
+						  i dependencyTo:
+							  (newNode := self buildNodeFromEntity: e in: serverNodes).
 						  sdcr add: newNode ] ] ].
 		  serverDCR := sdcr asOrderedCollection ]
 ]
@@ -499,12 +683,25 @@ MiNewVisuBuilder >> services [
 MiNewVisuBuilder >> setAppServiceUIDDependencies [
 
 	(self appServiceUID rawModel query: #in with: FamixTReference) do: [ :r | 
-		allEntities
+		serverNodes
 			at: r source
 			ifPresent: [ :n | n dependencyTo: self appServiceUID ].
-		allEntities
+		serverNodes
 			at: (self rootClass: r source)
 			ifPresent: [ :n | n dependencyTo: self appServiceUID ] ]
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> setClientServerDependencies [
+
+	self serverDCR do: [ :s | 
+		(s rawModel allProviders collect: [ :p | self rootClass: p ]) do: [ 
+			:r | 
+			clientNodes at: r ifPresent: [ :n | s dependencyTo: n ] ].
+		
+		(s rawModel allClients collect: [ :p | self rootClass: p ]) do: [ 
+			:r | 
+			clientNodes at: r ifPresent: [ :n | n dependencyTo: s ] ] ]
 ]
 
 { #category : #building }
@@ -521,7 +718,7 @@ MiNewVisuBuilder >> shapeFor: node [
 	| shape |
 	shape := RSComposite new
 		         model: node;
-		         color: Smalltalk ui theme buttonColor;
+		         color: Color transparent;
 		         announcer: self nodeAnnouncer;
 		         yourself.
 

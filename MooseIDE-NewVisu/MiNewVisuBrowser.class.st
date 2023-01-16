@@ -41,6 +41,12 @@ MiNewVisuBrowser >> followEntity: anEntity [
 	self runVisualization
 ]
 
+{ #category : #testing }
+MiNewVisuBrowser >> hasSettings [
+
+	^ true
+]
+
 { #category : #initialization }
 MiNewVisuBrowser >> initializeLayout [
 
@@ -79,11 +85,12 @@ MiNewVisuBrowser >> runVisualization [
 MiNewVisuBrowser >> setModelBeforeInitialization: aBrowserModel [
 	aBrowserModel ifNil: [ ^self ].
 
-	model := aBrowserModel
+	model := aBrowserModel.
+	model browser: self
 ]
 
-{ #category : #actions }
+{ #category : #testing }
 MiNewVisuBrowser >> settings [
 
-	^ false
+	model settings open
 ]
