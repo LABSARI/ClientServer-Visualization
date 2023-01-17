@@ -15,7 +15,9 @@ Class {
 		'clientNodes',
 		'serverNodes',
 		'highlightShapes',
-		'scale'
+		'scale',
+		'sharedNodes',
+		'sharedDict'
 	],
 	#category : #'MooseIDE-NewVisu'
 }
@@ -33,6 +35,18 @@ MiNewVisuBuilder >> appServiceUID [
 ]
 
 { #category : #building }
+MiNewVisuBuilder >> borderForSet [
+
+	^ RSBorder new
+		  width: 2;
+		  capSquare;
+		  joinMiter;
+		  color: Smalltalk ui theme textColor;
+		  dashArray: #( 5 10 );
+		  yourself
+]
+
+{ #category : #building }
 MiNewVisuBuilder >> boxChildrenColorFor: anHNode [
 
 	^ Color fromHexString: 'CCCCCC'
@@ -46,6 +60,8 @@ MiNewVisuBuilder >> build [
 	rootNode addAll: self serverPackages.
 	rootNode addAll: self services.
 	rootNode addAll: self clientPackages.
+	self dtoClasses.
+	self services anyOne rawModel mooseModel.
 	"self setServerDCRDependencies"
 	self setClientServerDependencies.
 	self setAppServiceUIDDependencies.
@@ -180,81 +196,53 @@ MiNewVisuBuilder >> buildNodeFromEntity: anEntity in: aDict [
 { #category : #building }
 MiNewVisuBuilder >> buildShapes [
 
-	| servicesShapes layout width implementationsShapes allShapes clientsShapes clientShape serverDCRShapes serverShape clientLabel serverLabel subClientShapes |
-	clientLabel := RSComposite new
-		               add: (RSLabel new
-				                text: 'Client side';
-				                fontSize: 55;
-				                color: Color black;
-				                yourself);
-		               adjustToChildren;
-		               padding: 50 @ 0;
-		               color: self container color;
-		               yourself.
+	| servicesShapes layout width implementationsShapes allShapes clientsShapes clientShape serverDCRShapes serverShape clientLabel serverLabel subClientShapes sharedShape sharedShapes ltt1 |
+	clientLabel := self labelFromString: 'Client side'.
+	serverLabel := self labelFromString: 'Server side'.
 
-	serverLabel := RSComposite new
-		               add: (RSLabel new
-				                text: 'Server side';
-				                fontSize: 55;
-				                color: Color black;
-				                yourself);
-		               adjustToChildren;
-		               padding: 50 @ 0;
-		               color: self container color;
-		               yourself.
 	layout := RSVerticalLineLayout new
 		          alignLeft;
 		          yourself.
+
+	"---------------------
+	BUILDING SHAPES
+	---------------------"
 	clientShape := RSComposite new.
 	serverShape := RSComposite new.
+	sharedShape := RSComposite new.
+
+	sharedShapes := (self commonPackagesFor: self dtoClasses)
+		                collect: [ :s | 
+		                (self shapeFor: s) sparent: self container ]
+		                as: RSGroup.
 	servicesShapes := self services
 		                  collect: [ :s | 
 		                  (self shapeFor: s) sparent: self container ]
 		                  as: RSGroup.
 	clientsShapes := self clientPackages
 		                 collect: [ :s | 
-			                 (self shapeFor: s) sparent: self container ]
+		                 (self shapeFor: s) sparent: self container ]
 		                 as: RSGroup.
 	clientsShapes sort: [ :a :b | a model name < b model name ].
 	subClientShapes := clientsShapes flatCollect: [ :cs | 
 		                   cs allChildren select: [ :s | 
 			                   s isComposite and: [ s model notNil ] ] ].
-	
-	
+
+
 	implementationsShapes := self implementations
 		                         collect: [ :s | 
 		                         (self shapeFor: s) sparent: self container ]
 		                         as: RSGroup.
-	"clients2Shapes := (self clients collect: [ :c | 
-		                   | cls nn |
-		                   cls := self clientNodesFor: c.
-		                   nn := HNode new
-			                         name: cls size asString;
-			                         children: cls;
-			                         collapse;
-			                         yourself.
-		                   nn dependencyTo: c.
-		                   rootNode add: nn.
-		                   nn ])
-		                  collect: [ :n | 
-		                  (self shapeFor: n) sparent: self container ]
-		                  as: RSGroup.
-"
+
 	serverDCRShapes := self serverPackages
 		                   collect: [ :s | 
 		                   (self shapeFor: s) sparent: self container ]
 		                   as: RSGroup.
 	serverDCRShapes sort: [ :a :b | a model name < b model name ].
-	"(serverDCRShapes detect: [ :s | s model name = 'AppServiceUID' ]) 
-		ifNotNil: [ :s | 
-			s border: (RSBorder new
-					 width: 2;
-					 capSquare;
-					 joinMiter;
-					 color: Color red;
-					 yourself) ]."
-	RSFlowLayout new on: serverDCRShapes.
 
+	"---------------------
+	ASPECT
+	---------------------"
 	width := (servicesShapes collect: #width) max.
 	servicesShapes do: [ :s | 
 		s children first width: width.
@@ -265,89 +253,106 @@ MiNewVisuBuilder >> buildShapes [
 		s children first width: width.
 		s adjustToChildren ].
 
-	"width := (clientsShapes collect: #width) max.
-	clientsShapes do: [ :s | s width: width ]."
+	clientLabel basicTranslateBy:
+		(clientShape extent / -2 translateBy: clientLabel extent x @ 0).
 
-	"width := (clients2Shapes collect: #width) max.
-	clients2Shapes do: [ :s | s width: width ]."
+	serverLabel basicTranslateBy:
+		(serverShape extent / -2 translateBy: serverLabel extent x @ 0).
 
+	clientShape border: self borderForSet.
+	serverShape border: self borderForSet.
+	sharedShape border: self borderForSet.
+	"---------------------
+	LAYOUT SHAPES
+	---------------------"
+	RSFlowLayout new on: serverDCRShapes.
+	RSFlowLayout new on: sharedShapes.
 	layout on: servicesShapes.
 	RSFlowLayout new
 		gapSize: 10;
 		on: clientsShapes.
-	"	layout on: clients2Shapes."
 	layout on: implementationsShapes.
 
 
-	clientShape
-		addAll: clientsShapes;
-		addAll: servicesShapes;
-		sparent: self container.
-	"		addAll: clients2Shapes;"
 
-	serverShape
-		addAll: implementationsShapes;
-		addAll: serverDCRShapes;
-		sparent: self container.
-
-	allShapes := RSGroup new.
-	allShapes
-		add: clientShape;
-		add: serverShape.
-	"addAll: clientsShapes;"
-	"addAll: servicesShapes;"
-
-	clientShape border: (RSBorder new
-			 width: 2;
-			 capSquare;
-			 joinMiter;
-			 color: Smalltalk ui theme textColor;
-			 dashArray: #( 5 10 );
-			 yourself).
-	serverShape border: (RSBorder new
-			 width: 2;
-			 capSquare;
-			 joinMiter;
-			 color: Smalltalk ui theme textColor;
-			 dashArray: #( 5 10 );
-			 yourself).
 	RSHorizontalLineLayout new
 		alignMiddle;
 		horizontalGap: 400;
 		on: { 
 				clientsShapes.
 				servicesShapes }.
-	"clients2Shapes."
+
+
 	RSHorizontalLineLayout new
 		alignMiddle;
 		horizontalGap: 400;
 		on: { 
 				implementationsShapes.
 				serverDCRShapes }.
+	"---------------------
+	ADDING SHAPES TO PARENTS
+	---------------------"
+	clientShape
+		addAll: clientsShapes;
+		addAll: servicesShapes;
+		sparent: self container.
+
+	serverShape
+		addAll: implementationsShapes;
+		addAll: serverDCRShapes;
+		sparent: self container.
+
+	sharedShape
+		addAll: sharedShapes;
+		sparent: self container.
+
+	allShapes := RSGroup new.
+
+	ltt1 := RSComposite new
+		        add: clientShape;
+		        add: serverShape;
+		        color: Color red;
+		        yourself.
+
+	allShapes
+		add: sharedShape;
+		add: ltt1.
+
 	self container schildren:
 		allShapes , clientsShapes , servicesShapes , implementationsShapes
-		, serverDCRShapes. ", clients2Shapes "
+		, serverDCRShapes.
+
+	sharedShape
+		adjustToChildren;
+		padding: 50.
+
 	clientShape
 		adjustToChildren;
 		padding: 50.
+
 	serverShape
 		adjustToChildren;
 		padding: 50.
+
 	clientShape add: clientLabel.
 	serverShape add: serverLabel.
-	clientLabel basicTranslateBy:
-		(clientShape extent / -2 translateBy: clientLabel extent x @ 0).
-	serverLabel basicTranslateBy:
-		(serverShape extent / -2 translateBy: serverLabel extent x @ 0).
 
 	self container addAll: allShapes.
+
 
 	RSHorizontalLineLayout new
 		alignMiddle;
 		horizontalGap: 400;
 		on: { 
 				clientShape.
-				serverShape }
+				serverShape }.
+	ltt1 adjustToChildren.
+	RSVerticalLineLayout new
+		alignCenter;
+		verticalGap: 400;
+		on: { 
+				sharedShape.
+				ltt1 }
 ]
 
 { #category : #accessing }
@@ -431,6 +436,18 @@ MiNewVisuBuilder >> commonPackagesFor: classes in: aDict [
 			  addAll: a value;
 			  iconName: #package;
 			  yourself ]
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> dtoClasses [
+
+	^ ((FQNavigationQuery incoming associations: { FamixJavaInheritance }) 
+		   runOn: ((FQStringQuery
+				     property: #name
+				     comparator: #=
+				     valueToCompare: 'BaseModelData') runOn:
+				    self services anyOne rawModel mooseModel allClasses)) 
+		  collect: [ :c | self buildNodeFromEntity: c ]
 ]
 
 { #category : #building }
@@ -527,15 +544,33 @@ MiNewVisuBuilder >> initialize [
 
 	super initialize.
 	self nodeStyler fontSize: 16.
-	self nodeStyler popup text: [ :e | e rawModel mooseName copyReplaceAll: '::' with: '.' ].
+	self nodeStyler popup text: [ :e | 
+		e rawModel mooseName copyReplaceAll: '::' with: '.' ].
 	allEntities := Dictionary new.
 	clientNodes := Dictionary new.
 	serverNodes := Dictionary new.
+	sharedNodes := OrderedCollection new.
+	sharedDict := Dictionary new.
 	scale := NSScale pow
 		         domain: #( 1 500 );
 		         range: { 
 				         Color white.
-				         (Color fromHexString: '40004B') }.
+				         (Color fromHexString: '40004B') }
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> labelFromString: aString [
+
+	^ RSComposite new
+		  add: (RSLabel new
+				   text: aString;
+				   fontSize: 55;
+				   color: Color black;
+				   yourself);
+		  adjustToChildren;
+		  padding: 50 @ 0;
+		  color: self container color;
+		  yourself
 ]
 
 { #category : #accessing }
@@ -696,11 +731,9 @@ MiNewVisuBuilder >> setClientServerDependencies [
 
 	self serverDCR do: [ :s | 
 		(s rawModel allProviders collect: [ :p | self rootClass: p ]) do: [ 
-			:r | 
-			clientNodes at: r ifPresent: [ :n | s dependencyTo: n ] ].
-		
-		(s rawModel allClients collect: [ :p | self rootClass: p ]) do: [ 
-			:r | 
+			:r | clientNodes at: r ifPresent: [ :n | s dependencyTo: n ] ].
+
+		(s rawModel allClients collect: [ :p | self rootClass: p ]) do: [ :r | 
 			clientNodes at: r ifPresent: [ :n | n dependencyTo: s ] ] ]
 ]
 
