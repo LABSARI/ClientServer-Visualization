@@ -17,7 +17,8 @@ Class {
 		'highlightShapes',
 		'scale',
 		'sharedNodes',
-		'sharedDict'
+		'sharedDict',
+		'dtoClasses'
 	],
 	#category : #'MooseIDE-NewVisu'
 }
@@ -56,15 +57,14 @@ MiNewVisuBuilder >> boxChildrenColorFor: anHNode [
 MiNewVisuBuilder >> build [
 
 	rootNode := HNode new.
-		rootNode addAll: self implementations.
+	rootNode addAll: self dtoClasses.
+	rootNode addAll: self implementations.
 	rootNode addAll: self serverPackages.
 	rootNode addAll: self services.
 	rootNode addAll: self clientPackages.
-	self dtoClasses.
-	self services anyOne rawModel mooseModel.
-	"self setServerDCRDependencies"
+	
+	
 	self setClientServerDependencies.
-	self setAppServiceUIDDependencies.
 	self renderIn: self container.
 	^ self container
 ]
@@ -181,6 +181,7 @@ MiNewVisuBuilder >> buildNodeFromEntity: anEntity [
 MiNewVisuBuilder >> buildNodeFromEntity: anEntity in: aDict [
 
 	| node |
+	sharedDict at: anEntity ifPresent: [ ^ nil ].
 	aDict at: anEntity ifPresent: [ :n | ^ n ].
 	node := HNode new
 		        name:
@@ -311,7 +312,6 @@ MiNewVisuBuilder >> buildShapes [
 	ltt1 := RSComposite new
 		        add: clientShape;
 		        add: serverShape;
-		        color: Color red;
 		        yourself.
 
 	allShapes
@@ -320,7 +320,7 @@ MiNewVisuBuilder >> buildShapes [
 
 	self container schildren:
 		allShapes , clientsShapes , servicesShapes , implementationsShapes
-		, serverDCRShapes.
+		, serverDCRShapes, sharedShapes.
 
 	sharedShape
 		adjustToChildren;
@@ -334,8 +334,8 @@ MiNewVisuBuilder >> buildShapes [
 		adjustToChildren;
 		padding: 50.
 
-	clientShape add: clientLabel.
-	serverShape add: serverLabel.
+	"clientShape add: clientLabel.
+	serverShape add: serverLabel."
 
 	self container addAll: allShapes.
 
@@ -379,14 +379,17 @@ MiNewVisuBuilder >> clients [
 		  | nodes |
 		  nodes := Set new.
 		  self services do: [ :s | 
-			        s rawModel incomingReferences do: [ :r | 
-				        | client |
-				        client := self buildNodeFromEntity:
-					                  (r source atScopeWithProperty: [ :e | 
-						                   e isClass and: [ e isAnonymousClass not ] ])
-						                  anyOne in: clientNodes.
-				        client dependencyTo: s.
-				        nodes add: client ] ].
+			  s rawModel incomingReferences do: [ :r | 
+				  | client |
+				  client := self
+					            buildNodeFromEntity:
+						            (r source atScopeWithProperty: [ :e | 
+							             e isClass and: [ e isAnonymousClass not ] ])
+							            anyOne
+					            in: clientNodes.
+				  client ifNotNil: [ 
+					  client dependencyTo: s.
+					  nodes add: client ] ] ].
 		  clients := nodes asOrderedCollection ]
 ]
 
@@ -441,13 +444,18 @@ MiNewVisuBuilder >> commonPackagesFor: classes in: aDict [
 { #category : #building }
 MiNewVisuBuilder >> dtoClasses [
 
-	^ ((FQNavigationQuery incoming associations: { FamixJavaInheritance }) 
-		   runOn: ((FQStringQuery
-				     property: #name
-				     comparator: #=
-				     valueToCompare: 'BaseModelData') runOn:
-				    self services anyOne rawModel mooseModel allClasses)) 
-		  collect: [ :c | self buildNodeFromEntity: c ]
+	^ dtoClasses ifNil: [ 
+		  dtoClasses := OrderedCollection new.
+		  dtoClasses addAll: ((((FQStringQuery
+				      property: #beginsWith:
+				      comparator: #=
+				      valueToCompare: 'BaseModel') runOn:
+				     self services anyOne rawModel mooseModel allClasses) 
+				    flatCollect: [ :b | b subclassHierarchy ]) collect: [ :c | 
+				   self buildNodeFromEntity: c in: sharedDict ]).
+		  dtoClasses addAll:
+			  (self services anyOne rawModel mooseModel allEnums collect: [ :c | 
+				   self buildNodeFromEntity: c in: sharedDict ]) ]
 ]
 
 { #category : #building }
@@ -695,9 +703,10 @@ MiNewVisuBuilder >> serverDCR [
 					  ifPresent: [ :n | i dependencyTo: n ]
 					  ifAbsent: [ 
 						  | newNode |
-						  i dependencyTo:
-							  (newNode := self buildNodeFromEntity: e in: serverNodes).
-						  sdcr add: newNode ] ] ].
+						  newNode := self buildNodeFromEntity: e in: serverNodes.
+						  newNode ifNotNil: [ 
+							  i dependencyTo: newNode.
+							  sdcr add: newNode ] ] ] ].
 		  serverDCR := sdcr asOrderedCollection ]
 ]
 
@@ -715,34 +724,22 @@ MiNewVisuBuilder >> services [
 ]
 
 { #category : #building }
-MiNewVisuBuilder >> setAppServiceUIDDependencies [
-
-	(self appServiceUID rawModel query: #in with: FamixTReference) do: [ :r | 
-		serverNodes
-			at: r source
-			ifPresent: [ :n | n dependencyTo: self appServiceUID ].
-		serverNodes
-			at: (self rootClass: r source)
-			ifPresent: [ :n | n dependencyTo: self appServiceUID ] ]
-]
-
-{ #category : #building }
 MiNewVisuBuilder >> setClientServerDependencies [
 
-	self serverDCR do: [ :s | 
+	self serverDCR, self implementations do: [ :s | 
 		(s rawModel allProviders collect: [ :p | self rootClass: p ]) do: [ 
-			:r | clientNodes at: r ifPresent: [ :n | s dependencyTo: n ] ].
+			:r | 
+			clientNodes at: r ifPresent: [ :n | s dependencyTo: n ].
+			sharedDict at: r ifPresent: [ :n | s dependencyTo: n ] ].
 
 		(s rawModel allClients collect: [ :p | self rootClass: p ]) do: [ :r | 
-			clientNodes at: r ifPresent: [ :n | n dependencyTo: s ] ] ]
-]
-
-{ #category : #building }
-MiNewVisuBuilder >> setServerDCRDependencies [
-
-	self serverDCR do: [ :s | 
-		(s rawModel query: #out with: FamixTReference) do: [ :r | 
-			allEntities at: r target ifPresent: [ :n | s dependencyTo: n ] ] ]
+			clientNodes at: r ifPresent: [ :n | n dependencyTo: s ].
+			sharedDict at: r ifPresent: [ :n | n dependencyTo: s ] ] ].
+	self clients do: [ :s | 
+		(s rawModel allProviders collect: [ :p | self rootClass: p ]) do: [ 
+			:r | sharedDict at: r ifPresent: [ :n | s dependencyTo: n ] ].
+		(s rawModel allClients collect: [ :p | self rootClass: p ]) do: [ :r | 
+			sharedDict at: r ifPresent: [ :n | n dependencyTo: s ] ] ]
 ]
 
 { #category : #building }
