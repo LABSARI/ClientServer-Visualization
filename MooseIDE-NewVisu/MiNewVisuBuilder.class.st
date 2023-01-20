@@ -62,12 +62,12 @@ MiNewVisuBuilder >> build [
 	rootNode := HNode new.
 	rootNode addAll: self dtoClasses.
 	rootNode addAll: self implementations.
-	rootNode addAll: self serverPackages.
 	rootNode addAll: self services.
 	rootNode
 		addAll: self clientPackages;
 		addAll: self useCaseInterfarces;
 		addAll: self useCaseImplementations;
+		addAll: self serverPackages;
 		addAll: self useCaseProviders.
 
 	self setClientServerDependencies.
@@ -829,7 +829,7 @@ MiNewVisuBuilder >> useCaseImplementations [
 				         serverNodes
 					         at: impl
 					         ifPresent: [ :n | hnode := n ]
-					         ifAbsent: [ hnode := self buildNodeFromEntity: impl ].
+					         ifAbsent: [ hnode := self buildNodeFromEntity: impl in: serverNodes ].
 				         hnode dependencyTo: c.
 				         hnode ] ] ]
 ]
@@ -843,7 +843,8 @@ MiNewVisuBuilder >> useCaseInterfarces [
 			           comparator: #matchesRegex:
 			           valueToCompare: 'IU(c|C).*') runOn:
 			          self services anyOne rawModel mooseModel allModelClasses) 
-			         collect: [ :c | self buildNodeFromEntity: c ] ]
+			         collect: [ :c | 
+			         self buildNodeFromEntity: c in: serverNodes ] ]
 ]
 
 { #category : #building }
@@ -853,13 +854,14 @@ MiNewVisuBuilder >> useCaseProviders [
 		  ucProviders := OrderedCollection new.
 		  self useCaseImplementations do: [ :i | 
 			  | cli |
-			  cli := i rawModel allProviders 
+			  cli := i rawModel allProviders
 				         reject: #isStub
 				         thenCollect: [ :e | self rootClass: e ].
 			  cli do: [ :e | 
 				  | newNode |
-				  newNode := self buildNodeFromEntity: e in: serverNodes.
-				  newNode ifNotNil: [ 
-					  i dependencyTo: newNode.
-					  ucProviders add: newNode ] ] ] ]
+				  serverNodes at: e ifAbsent: [ 
+					  newNode := self buildNodeFromEntity: e in: serverNodes.
+					  newNode ifNotNil: [ 
+						  i dependencyTo: newNode.
+						  ucProviders add: newNode ] ] ] ] ]
 ]
