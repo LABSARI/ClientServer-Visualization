@@ -18,7 +18,10 @@ Class {
 		'scale',
 		'sharedNodes',
 		'sharedDict',
-		'dtoClasses'
+		'dtoClasses',
+		'iuc',
+		'uci',
+		'ucProviders'
 	],
 	#category : #'MooseIDE-NewVisu'
 }
@@ -61,9 +64,12 @@ MiNewVisuBuilder >> build [
 	rootNode addAll: self implementations.
 	rootNode addAll: self serverPackages.
 	rootNode addAll: self services.
-	rootNode addAll: self clientPackages.
-	
-	
+	rootNode
+		addAll: self clientPackages;
+		addAll: self useCaseInterfarces;
+		addAll: self useCaseImplementations;
+		addAll: self useCaseProviders.
+
 	self setClientServerDependencies.
 	self renderIn: self container.
 	^ self container
@@ -197,7 +203,7 @@ MiNewVisuBuilder >> buildNodeFromEntity: anEntity in: aDict [
 { #category : #building }
 MiNewVisuBuilder >> buildShapes [
 
-	| servicesShapes layout width implementationsShapes allShapes clientsShapes clientShape serverDCRShapes serverShape clientLabel serverLabel subClientShapes sharedShape sharedShapes ltt1 |
+	| servicesShapes layout width implementationsShapes allShapes clientsShapes clientShape serverDCRShapes serverShape clientLabel serverLabel subClientShapes sharedShape sharedShapes ltt1 iucShapes uciShapes ucProviderShapes |
 	clientLabel := self labelFromString: 'Client side'.
 	serverLabel := self labelFromString: 'Server side'.
 
@@ -228,7 +234,20 @@ MiNewVisuBuilder >> buildShapes [
 	subClientShapes := clientsShapes flatCollect: [ :cs | 
 		                   cs allChildren select: [ :s | 
 			                   s isComposite and: [ s model notNil ] ] ].
+	iucShapes := self useCaseInterfarces
+		             collect: [ :s | 
+		             (self shapeFor: s) sparent: self container ]
+		             as: RSGroup.
 
+	uciShapes := self useCaseImplementations
+		             collect: [ :s | 
+		             (self shapeFor: s) sparent: self container ]
+		             as: RSGroup.
+
+	ucProviderShapes := (self commonPackagesFor: self useCaseProviders)
+		                    collect: [ :s | 
+		                    (self shapeFor: s) sparent: self container ]
+		                    as: RSGroup.
 
 	implementationsShapes := self implementations
 		                         collect: [ :s | 
@@ -254,6 +273,16 @@ MiNewVisuBuilder >> buildShapes [
 		s children first width: width.
 		s adjustToChildren ].
 
+	width := (iucShapes collect: #width) max.
+	iucShapes do: [ :s | 
+		s children first width: width.
+		s adjustToChildren ].
+
+	width := (uciShapes collect: #width) max.
+	uciShapes do: [ :s | 
+		s children first width: width.
+		s adjustToChildren ].
+
 	clientLabel basicTranslateBy:
 		(clientShape extent / -2 translateBy: clientLabel extent x @ 0).
 
@@ -268,7 +297,10 @@ MiNewVisuBuilder >> buildShapes [
 	---------------------"
 	RSFlowLayout new on: serverDCRShapes.
 	RSFlowLayout new on: sharedShapes.
+	RSFlowLayout new on: ucProviderShapes.
 	layout on: servicesShapes.
+	layout on: iucShapes.
+	layout on: uciShapes.
 	RSFlowLayout new
 		gapSize: 10;
 		on: clientsShapes.
@@ -289,7 +321,11 @@ MiNewVisuBuilder >> buildShapes [
 		horizontalGap: 400;
 		on: { 
 				implementationsShapes.
-				serverDCRShapes }.
+
+				serverDCRShapes.
+				iucShapes.
+				uciShapes.
+				ucProviderShapes }.
 	"---------------------
 	ADDING SHAPES TO PARENTS
 	---------------------"
@@ -301,6 +337,9 @@ MiNewVisuBuilder >> buildShapes [
 	serverShape
 		addAll: implementationsShapes;
 		addAll: serverDCRShapes;
+		addAll: iucShapes;
+		addAll: uciShapes;
+		addAll: ucProviderShapes;
 		sparent: self container.
 
 	sharedShape
@@ -320,7 +359,8 @@ MiNewVisuBuilder >> buildShapes [
 
 	self container schildren:
 		allShapes , clientsShapes , servicesShapes , implementationsShapes
-		, serverDCRShapes, sharedShapes.
+		, iucShapes , uciShapes , ucProviderShapes , serverDCRShapes
+		, sharedShapes.
 
 	sharedShape
 		adjustToChildren;
@@ -379,17 +419,15 @@ MiNewVisuBuilder >> clients [
 		  | nodes |
 		  nodes := Set new.
 		  self services do: [ :s | 
-			  s rawModel incomingReferences do: [ :r | 
-				  | client |
-				  client := self
-					            buildNodeFromEntity:
-						            (r source atScopeWithProperty: [ :e | 
-							             e isClass and: [ e isAnonymousClass not ] ])
-							            anyOne
-					            in: clientNodes.
-				  client ifNotNil: [ 
-					  client dependencyTo: s.
-					  nodes add: client ] ] ].
+			  (s rawModel incomingReferences reject: [ :r | r source isStub ]) 
+				  do: [ :r | 
+					  | client rootClass |
+					  rootClass := self rootClass: r source.
+					  serverNodes at: rootClass ifAbsent: [ 
+						  client := self buildNodeFromEntity: rootClass in: clientNodes.
+						  client ifNotNil: [ 
+							  client dependencyTo: s.
+							  nodes add: client ] ] ] ].
 		  clients := nodes asOrderedCollection ]
 ]
 
@@ -408,9 +446,12 @@ MiNewVisuBuilder >> colorFor: node [
 				   self rootClass: c source ]) size + 1 ].
 	mapModel shouldColor ifFalse: [ ^ Color fromHexString: '7FC6F6' ].
 
-	^ (node rawModel mooseName includesSubstring: '::client')
-		  ifTrue: [ Color fromHexString: '7FC6F6' ]
-		  ifFalse: [ Color fromHexString: 'FFABA3' ]
+	^ (((self sourceAnchorFor: node rawModel) fileName 
+		    includesSubstring: '/BLOmajeGwt/BLOmajeServer') or: [ 
+		   (self sourceAnchorFor: node rawModel) fileName 
+			   includesSubstring: '/BLOmajeGwt/BLCoreServer' ])
+		  ifTrue: [ Color fromHexString: 'FFABA3' ]
+		  ifFalse: [ Color fromHexString: '7FC6F6' ]
 ]
 
 { #category : #building }
@@ -451,11 +492,12 @@ MiNewVisuBuilder >> dtoClasses [
 				      comparator: #=
 				      valueToCompare: 'BaseModel') runOn:
 				     self services anyOne rawModel mooseModel allClasses) 
-				    flatCollect: [ :b | b subclassHierarchy ]) collect: [ :c | 
-				   self buildNodeFromEntity: c in: sharedDict ]).
+				    flatCollect: [ :b | b subclassHierarchy reject: #isStub ]) 
+				   collect: [ :c | self buildNodeFromEntity: c in: sharedDict ]).
 		  dtoClasses addAll:
 			  (self services anyOne rawModel mooseModel allEnums collect: [ :c | 
-				   self buildNodeFromEntity: c in: sharedDict ]) ]
+				   self buildNodeFromEntity: c in: sharedDict ]).
+		  dtoClasses := dtoClasses reject: [ :d | d rawModel isStub ] ]
 ]
 
 { #category : #building }
@@ -763,4 +805,61 @@ MiNewVisuBuilder >> shapeFor: node [
 		when: HNodeChangedEvent do: [ :evt | self rebuildShape: shape ].
 	shapes add: shape.
 	^ shape
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> sourceAnchorFor: anEntity [
+
+	anEntity isType ifTrue: [ ^ anEntity sourceAnchor ].
+	anEntity isPackage ifTrue: [ 
+		^ self sourceAnchorFor: (anEntity toAnyScope: { 
+					   FamixTClass.
+					   FamixTEnum }) anyOne ].
+	^ nil
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> useCaseImplementations [
+
+	^ uci ifNil: [ 
+		  uci := self useCaseInterfarces flatCollect: [ :c | 
+			         (c rawModel subclassHierarchy reject: [ :sc | 
+				          sc isInterface ]) collect: [ :impl | 
+				         | hnode |
+				         serverNodes
+					         at: impl
+					         ifPresent: [ :n | hnode := n ]
+					         ifAbsent: [ hnode := self buildNodeFromEntity: impl ].
+				         hnode dependencyTo: c.
+				         hnode ] ] ]
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> useCaseInterfarces [
+
+	^ iuc ifNil: [ 
+		  iuc := ((FQStringQuery
+			           property: #name
+			           comparator: #matchesRegex:
+			           valueToCompare: 'IU(c|C).*') runOn:
+			          self services anyOne rawModel mooseModel allModelClasses) 
+			         collect: [ :c | self buildNodeFromEntity: c ] ]
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> useCaseProviders [
+
+	^ ucProviders ifNil: [ 
+		  ucProviders := OrderedCollection new.
+		  self useCaseImplementations do: [ :i | 
+			  | cli |
+			  cli := i rawModel allProviders 
+				         reject: #isStub
+				         thenCollect: [ :e | self rootClass: e ].
+			  cli do: [ :e | 
+				  | newNode |
+				  newNode := self buildNodeFromEntity: e in: serverNodes.
+				  newNode ifNotNil: [ 
+					  i dependencyTo: newNode.
+					  ucProviders add: newNode ] ] ] ]
 ]
