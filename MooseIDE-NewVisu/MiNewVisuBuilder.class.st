@@ -859,9 +859,12 @@ MiNewVisuBuilder >> useCaseProviders [
 				         thenCollect: [ :e | self rootClass: e ].
 			  cli do: [ :e | 
 				  | newNode |
-				  serverNodes at: e ifAbsent: [ 
-					  newNode := self buildNodeFromEntity: e in: serverNodes.
-					  newNode ifNotNil: [ 
-						  i dependencyTo: newNode.
-						  ucProviders add: newNode ] ] ] ] ]
+				  serverNodes
+					  at: e
+					  ifPresent: [ :n | i dependencyTo: n ]
+					  ifAbsent: [ 
+						  newNode := self buildNodeFromEntity: e in: serverNodes.
+						  newNode ifNotNil: [ 
+							  i dependencyTo: newNode.
+							  ucProviders add: newNode ] ] ] ] ]
 ]
