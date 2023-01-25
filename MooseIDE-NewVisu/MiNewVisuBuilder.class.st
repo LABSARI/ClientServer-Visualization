@@ -18,7 +18,9 @@ Class {
 		'scale',
 		'sharedNodes',
 		'sharedDict',
-		'dtoClasses'
+		'dtoClasses',
+		'currentGroups',
+		'currentChildrenNodes'
 	],
 	#category : #'MooseIDE-NewVisu'
 }
@@ -56,6 +58,7 @@ MiNewVisuBuilder >> boxChildrenColorFor: anHNode [
 { #category : #building }
 MiNewVisuBuilder >> build [
 
+	
 	rootNode := HNode new.
 	rootNode addAll: self dtoClasses.
 	rootNode addAll: self implementations.
@@ -63,6 +66,7 @@ MiNewVisuBuilder >> build [
 	rootNode addAll: self services.
 	rootNode addAll: self clientPackages.
 	
+	"Build tree representing the desired layout. "
 	
 	self setClientServerDependencies.
 	self renderIn: self container.
@@ -572,11 +576,11 @@ MiNewVisuBuilder >> labelFromString: aString [
 	^ RSComposite new
 		  add: (RSLabel new
 				   text: aString;
-				   fontSize: 55;
+				   fontSize: 25;
 				   color: Color black;
 				   yourself);
 		  adjustToChildren;
-		  padding: 50 @ 0;
+		  padding: 10 @ 0;
 		  color: self container color;
 		  yourself
 ]
@@ -763,4 +767,104 @@ MiNewVisuBuilder >> shapeFor: node [
 		when: HNodeChangedEvent do: [ :evt | self rebuildShape: shape ].
 	shapes add: shape.
 	^ shape
+]
+
+{ #category : #visiting }
+MiNewVisuBuilder >> visit: aVisualizationModel [
+
+	| rootShape |
+	shapes := OrderedCollection new.
+	rootNode := HNode new.
+	currentChildrenNodes := OrderedCollection new.
+	rootShape := aVisualizationModel acceptVisitor: self.
+	self container add: rootShape
+]
+
+{ #category : #visiting }
+MiNewVisuBuilder >> visitBox: aMiNVBoxNode [
+
+	| shape label |
+	label := self labelFromString: aMiNVBoxNode name.
+
+	shape := RSComposite new.
+	shape add: (aMiNVBoxNode layout acceptVisitor: self).
+	shape
+		adjustToChildren;
+		border: self borderForSet;
+		padding: 50.
+	shape add: label.
+	RSLocation new
+		left;
+		top;
+		inner;
+		move: label on: shape baseRectangle.
+	^ shape
+]
+
+{ #category : #visiting }
+MiNewVisuBuilder >> visitElement: aMiNVElement [
+
+	| hNode |
+	hNode := HNode new
+		         rawModel: aMiNVElement model;
+		         name: aMiNVElement model asString;
+		         yourself.
+	rootNode add: hNode.
+	^ self shapeFor: hNode
+]
+
+{ #category : #visiting }
+MiNewVisuBuilder >> visitFlowLayout: aMiNVFlowLayoutNode [
+
+	^ self
+		  visitLayout: aMiNVFlowLayoutNode
+		  withRSLayout: RSFlowLayout new
+]
+
+{ #category : #visiting }
+MiNewVisuBuilder >> visitHorizontalLayout: aMiNVHorizontalLayoutNode [
+
+	^ self
+		  visitLayout: aMiNVHorizontalLayoutNode
+		  withRSLayout: (RSHorizontalLineLayout new
+				   alignMiddle;
+				   yourself)
+]
+
+{ #category : #visiting }
+MiNewVisuBuilder >> visitLayout: aMiNVLayoutNode withRSLayout: aRoassalLayout [
+
+	| group layoutChildrenNodes |
+	layoutChildrenNodes := OrderedCollection new.
+	group := RSGroup new.
+
+	aMiNVLayoutNode children do: [ :c | 
+		group add: (c acceptVisitor: self) ].
+
+	aRoassalLayout on: group.
+
+	^ group asShape
+]
+
+{ #category : #visiting }
+MiNewVisuBuilder >> visitQueryNode: aMiNVQueryNode [
+
+	| nodes |
+	nodes := aMiNVQueryNode query value collect: [ :i | 
+		         HNode new
+			         rawModel: i;
+			         name: i asString;
+			         yourself ].
+	currentChildrenNodes addAll: nodes.
+	^ nodes collect: [ :node | self shapeFor: node ] as: RSGroup
+]
+
+{ #category : #visiting }
+MiNewVisuBuilder >> visitVerticalLayout: aMiNVVerticalLayoutNode [
+
+	^ self
+		  visitLayout: aMiNVVerticalLayoutNode
+		  withRSLayout: (RSVerticalLineLayout new
+				   alignCenter;
+				   yourself)
 ]

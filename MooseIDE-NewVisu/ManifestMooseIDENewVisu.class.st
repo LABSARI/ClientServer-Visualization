@@ -13,6 +13,11 @@ ManifestMooseIDENewVisu class >> ruleCollectionProtocolRuleV1FalsePositive [
 ]
 
 { #category : #'code-critics' }
+ManifestMooseIDENewVisu class >> ruleInconsistentMethodClassificationRuleV1FalsePositive [
+	^ #(#(#(#RGMethodDefinition #(#MiNewVisu #run #false)) #'2023-01-25T09:58:07.842579+01:00') )
+]
+
+{ #category : #'code-critics' }
 ManifestMooseIDENewVisu class >> ruleLongMethodsRuleV1FalsePositive [
 	^ #(#(#(#RGMethodDefinition #(#MiNewVisuBuilder #buildShapes #false)) #'2023-01-16T14:28:25.213065+01:00') )
 ]
