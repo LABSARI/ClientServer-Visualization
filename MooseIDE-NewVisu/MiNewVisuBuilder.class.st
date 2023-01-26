@@ -20,10 +20,43 @@ Class {
 		'sharedDict',
 		'dtoClasses',
 		'currentGroups',
-		'currentChildrenNodes'
+		'currentChildrenNodes',
+		'allEnums',
+		'allOtherClasses'
 	],
 	#category : #'MooseIDE-NewVisu'
 }
+
+{ #category : #building }
+MiNewVisuBuilder >> allEnums [
+
+	^ allEnums ifNil: [ 
+		  allEnums := self services anyOne rawModel mooseModel allEnums 
+			              collect: [ :c | 
+			              self buildNodeFromEntity: c in: sharedDict ] ]
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> allOtherModelClasses [
+
+	^ allOtherClasses ifNil: [ 
+		  allOtherClasses := (self services anyOne rawModel mooseModel
+			                      allModelClasses reject: [ :c | 
+			                      c isAnonymousClass or: [ 
+				                      (sharedDict
+					                       at: c
+					                       ifPresent: [ true ]
+					                       ifAbsent: [ false ]) or: [ 
+					                      (clientNodes
+						                       at: c
+						                       ifPresent: [ true ]
+						                       ifAbsent: [ false ]) or: [ 
+						                      serverNodes
+							                      at: c
+							                      ifPresent: [ true ]
+							                      ifAbsent: [ false ] ] ] ] ]) collect: [ 
+			                     :c | self buildNodeFromEntity: c ] ]
+]
 
 { #category : #building }
 MiNewVisuBuilder >> appServiceUID [
@@ -58,19 +91,95 @@ MiNewVisuBuilder >> boxChildrenColorFor: anHNode [
 { #category : #building }
 MiNewVisuBuilder >> build [
 
-	
-	rootNode := HNode new.
-	rootNode addAll: self dtoClasses.
-	rootNode addAll: self implementations.
-	rootNode addAll: self serverPackages.
-	rootNode addAll: self services.
-	rootNode addAll: self clientPackages.
-	
-	"Build tree representing the desired layout. "
-	
-	self setClientServerDependencies.
-	self renderIn: self container.
-	^ self container
+	| description |
+	(description := MiNVVerticalLayoutNode new)
+		gapSize: 90;
+		add: (MiNVBoxNode new
+				 name: 'Shared';
+				 layout: (MiNVHorizontalLayoutNode new
+						  gapSize: 40;
+						  add: (MiNVBoxNode new
+								   name: 'DTOs';
+								   layout: (MiNVFlowLayoutNode new
+										    addAll:
+											    ((self commonPackagesFor: self dtoClasses) collect: [ 
+													     :c | 
+													     MiNVElement new
+														     model: c;
+														     yourself ]);
+										    yourself);
+								   yourself);
+						  add: (MiNVBoxNode new
+								   name: 'Enumerations';
+								   layout: (MiNVFlowLayoutNode new
+										    addAll:
+											    ((self commonPackagesFor: self allEnums) collect: [ :c | 
+													     MiNVElement new
+														     model: c;
+														     yourself ]);
+										    yourself);
+								   yourself);
+						  yourself);
+				 yourself);
+		add: (MiNVHorizontalLayoutNode new
+				 gapSize: 90;
+				 add: (MiNVBoxNode new
+						  name: 'Client';
+						  layout: (MiNVHorizontalLayoutNode new
+								   gapSize: 80;
+								   add: (MiNVFlowLayoutNode new
+										    addAll: (self clientPackages collect: [ :c | 
+													     MiNVElement new
+														     model: c;
+														     yourself ]);
+										    yourself);
+								   add: (MiNVBoxNode new
+										    name: 'Services';
+										    layout: (MiNVVerticalLayoutNode new
+												     addAll: (self services collect: [ :c | 
+															      MiNVElement new
+																      model: c;
+																      yourself ]);
+												     yourself);
+										    yourself);
+								   yourself);
+						  yourself);
+				 add: (MiNVBoxNode new
+						  name: 'Server';
+						  layout: (MiNVHorizontalLayoutNode new
+								   gapSize: 80;
+								   add: (MiNVBoxNode new
+										    name: 'Implementations';
+										    layout: (MiNVVerticalLayoutNode new
+												     addAll: (self implementations collect: [ :c | 
+															      MiNVElement new
+																      model: c;
+																      yourself ]);
+												     yourself);
+										    yourself);
+								   add: (MiNVFlowLayoutNode new
+										    addAll: (self serverPackages collect: [ :c | 
+													     MiNVElement new
+														     model: c;
+														     yourself ]);
+										    yourself);
+								   yourself);
+						  yourself);
+				 yourself);
+		add: (MiNVBoxNode new
+				 name: 'All other classes';
+				 layout: (MiNVFlowLayoutNode new
+						  addAll:
+							  ((self commonPackagesFor: self allOtherModelClasses) 
+								   collect: [ :c | 
+									   MiNVElement new
+										   model: c;
+										   yourself ]);
+						  yourself);
+				 yourself).
+
+	self visit: description.
+	self renderLinesIn: self container
 ]
 
 { #category : #building }
@@ -451,15 +560,13 @@ MiNewVisuBuilder >> dtoClasses [
 	^ dtoClasses ifNil: [ 
 		  dtoClasses := OrderedCollection new.
 		  dtoClasses addAll: ((((FQStringQuery
-				      property: #beginsWith:
-				      comparator: #=
+				      property: #name
+				      comparator: #beginsWith:
 				      valueToCompare: 'BaseModel') runOn:
 				     self services anyOne rawModel mooseModel allClasses) 
-				    flatCollect: [ :b | b subclassHierarchy ]) collect: [ :c | 
-				   self buildNodeFromEntity: c in: sharedDict ]).
-		  dtoClasses addAll:
-			  (self services anyOne rawModel mooseModel allEnums collect: [ :c | 
-				   self buildNodeFromEntity: c in: sharedDict ]) ]
+				    flatCollect: [ :b | b subclassHierarchy ])
+				   collect: [ :c | self buildNodeFromEntity: c in: sharedDict ]
+				   thenReject: #isNil) ]
 ]
 
 { #category : #building }
@@ -805,10 +912,7 @@ MiNewVisuBuilder >> visitBox: aMiNVBoxNode [
 MiNewVisuBuilder >> visitElement: aMiNVElement [
 
 	| hNode |
-	hNode := HNode new
-		         rawModel: aMiNVElement model;
-		         name: aMiNVElement model asString;
-		         yourself.
+	hNode := aMiNVElement model.
 	rootNode add: hNode.
 	^ self shapeFor: hNode
 ]
@@ -827,6 +931,7 @@ MiNewVisuBuilder >> visitHorizontalLayout: aMiNVHorizontalLayoutNode [
 	^ self
 		  visitLayout: aMiNVHorizontalLayoutNode
 		  withRSLayout: (RSHorizontalLineLayout new
+				   gapSize: aMiNVHorizontalLayoutNode gapSize;
 				   alignMiddle;
 				   yourself)
 ]
@@ -866,5 +971,6 @@ MiNewVisuBuilder >> visitVerticalLayout: aMiNVVerticalLayoutNode [
 		  visitLayout: aMiNVVerticalLayoutNode
 		  withRSLayout: (RSVerticalLineLayout new
 				   alignCenter;
+				   gapSize: aMiNVVerticalLayoutNode gapSize;
 				   yourself)
 ]

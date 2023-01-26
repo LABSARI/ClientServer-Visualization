@@ -3,7 +3,8 @@ Class {
 	#superclass : #MiNVAbstractNode,
 	#instVars : [
 		'children',
-		'query'
+		'query',
+		'gapSize'
 	],
 	#category : #'MooseIDE-NewVisu'
 }
@@ -26,11 +27,24 @@ MiNVLayoutNode >> children [
 	^ children
 ]
 
+{ #category : #accessing }
+MiNVLayoutNode >> gapSize [
+
+	^ gapSize
+]
+
+{ #category : #accessing }
+MiNVLayoutNode >> gapSize: anObject [
+
+	gapSize := anObject
+]
+
 { #category : #initialization }
 MiNVLayoutNode >> initialize [
 
 	super initialize.
-	children := OrderedCollection new
+	children := OrderedCollection new.
+	gapSize := 3
 ]
 
 { #category : #accessing }
