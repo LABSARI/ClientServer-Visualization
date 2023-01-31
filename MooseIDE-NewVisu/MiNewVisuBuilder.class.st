@@ -22,7 +22,14 @@ Class {
 		'currentGroups',
 		'currentChildrenNodes',
 		'allEnums',
-		'allOtherClasses'
+		'allOtherClasses',
+		'serverDCR2',
+		'serverDCR3',
+		'clients3',
+		'clients4',
+		'serverDCR4',
+		'clients5',
+		'serverDCR5'
 	],
 	#category : #'MooseIDE-NewVisu'
 }
@@ -31,16 +38,16 @@ Class {
 MiNewVisuBuilder >> allEnums [
 
 	^ allEnums ifNil: [ 
-		  allEnums := self services anyOne rawModel mooseModel allEnums 
+		  allEnums := OrderedCollection new "self services anyOne rawModel mooseModel allEnums 
 			              collect: [ :c | 
-			              self buildNodeFromEntity: c in: sharedDict ] ]
+			              self buildNodeFromEntity: c in: sharedDict ] " ]
 ]
 
 { #category : #building }
 MiNewVisuBuilder >> allOtherModelClasses [
 
 	^ allOtherClasses ifNil: [ 
-		  allOtherClasses := (self services anyOne rawModel mooseModel
+		  allOtherClasses := OrderedCollection new "(self services anyOne rawModel mooseModel
 			                      allModelClasses reject: [ :c | 
 			                      c isAnonymousClass or: [ 
 				                      (sharedDict
@@ -55,7 +62,7 @@ MiNewVisuBuilder >> allOtherModelClasses [
 							                      at: c
 							                      ifPresent: [ true ]
 							                      ifAbsent: [ false ] ] ] ] ]) collect: [ 
-			                     :c | self buildNodeFromEntity: c ] ]
+			                     :c | self buildNodeFromEntity: c ]" ]
 ]
 
 { #category : #building }
@@ -92,6 +99,19 @@ MiNewVisuBuilder >> boxChildrenColorFor: anHNode [
 MiNewVisuBuilder >> build [
 
 	| description |
+	self services.
+	self implementations.
+
+	self serverDCR.
+	self clients.
+	self serverDCR2.
+	self clients2.
+	self serverDCR3.
+	self clients3.
+	self serverDCR4.
+	self clients4.
+	self serverDCR5.
+	self clients5.
 	(description := MiNVVerticalLayoutNode new)
 		gapSize: 90;
 		add: (MiNVBoxNode new
@@ -128,6 +148,34 @@ MiNewVisuBuilder >> build [
 						  layout: (MiNVHorizontalLayoutNode new
 								   gapSize: 80;
 								   add: (MiNVFlowLayoutNode new
+										    addAll:
+											    ((self commonPackagesFor: self clients5) collect: [ :c | 
+													     MiNVElement new
+														     model: c;
+														     yourself ]);
+										    yourself);
+								   add: (MiNVFlowLayoutNode new
+										    addAll:
+											    ((self commonPackagesFor: self clients4) collect: [ :c | 
+													     MiNVElement new
+														     model: c;
+														     yourself ]);
+										    yourself);
+								   add: (MiNVFlowLayoutNode new
+										    addAll:
+											    ((self commonPackagesFor: self clients3) collect: [ :c | 
+													     MiNVElement new
+														     model: c;
+														     yourself ]);
+										    yourself);
+								   add: (MiNVFlowLayoutNode new
+										    addAll:
+											    ((self commonPackagesFor: self clients2) collect: [ :c | 
+													     MiNVElement new
+														     model: c;
+														     yourself ]);
+										    yourself);
+								   add: (MiNVFlowLayoutNode new
 										    addAll: (self clientPackages collect: [ :c | 
 													     MiNVElement new
 														     model: c;
@@ -159,6 +207,38 @@ MiNewVisuBuilder >> build [
 										    yourself);
 								   add: (MiNVFlowLayoutNode new
 										    addAll: (self serverPackages collect: [ :c | 
+													     MiNVElement new
+														     model: c;
+														     yourself ]);
+										    yourself);
+								   add: (MiNVFlowLayoutNode new
+										    addAll:
+											    ((self commonPackagesFor: self serverDCR2) collect: [ 
+													     :c | 
+													     MiNVElement new
+														     model: c;
+														     yourself ]);
+										    yourself);
+								   add: (MiNVFlowLayoutNode new
+										    addAll:
+											    ((self commonPackagesFor: self serverDCR3) collect: [ 
+													     :c | 
+													     MiNVElement new
+														     model: c;
+														     yourself ]);
+										    yourself);
+								   add: (MiNVFlowLayoutNode new
+										    addAll:
+											    ((self commonPackagesFor: self serverDCR4) collect: [ 
+													     :c | 
+													     MiNVElement new
+														     model: c;
+														     yourself ]);
+										    yourself);
+								   add: (MiNVFlowLayoutNode new
+										    addAll:
+											    ((self commonPackagesFor: self serverDCR5) collect: [ 
+													     :c | 
 													     MiNVElement new
 														     model: c;
 														     yourself ]);
@@ -272,6 +352,20 @@ MiNewVisuBuilder >> buildCompositeEmptyNodeIn: shape [
 	shape
 		propertyAt: #background put: box;
 		adjustToChildren
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> buildExtraNodeFromEntity: anEntity [
+
+	| node |
+	node := HNode new
+		        name:
+			        (String streamContents: [ :s | anEntity displayStringOn: s ]);
+		        rawModel: anEntity;
+		        iconName: #class;
+		        collapse;
+		        yourself.
+	^ node
 ]
 
 { #category : #building }
@@ -482,7 +576,7 @@ MiNewVisuBuilder >> clientNodesFor: anHNode [
 MiNewVisuBuilder >> clientPackages [
 
 	^ clientPackages ifNil: [ 
-		  clientPackages := self commonPackagesFor: self clients in: clientNodes]
+		  clientPackages := self commonPackagesFor: self clients ]
 ]
 
 { #category : #building }
@@ -493,17 +587,96 @@ MiNewVisuBuilder >> clients [
 		  nodes := Set new.
 		  self services do: [ :s | 
 			  s rawModel incomingReferences do: [ :r | 
-				  | client |
-				  client := self
-					            buildNodeFromEntity:
-						            (r source atScopeWithProperty: [ :e | 
-							             e isClass and: [ e isAnonymousClass not ] ])
-							            anyOne
-					            in: clientNodes.
-				  client ifNotNil: [ 
-					  client dependencyTo: s.
-					  nodes add: client ] ] ].
+				  | client class |
+				  class := self rootClass: r source.
+				  allEntities
+					  at: class
+					  ifPresent: [ :hn | client := hn ]
+					  ifAbsent: [ 
+						  client := self buildNodeFromEntity: class in: allEntities.
+						  client ifNotNil: [ nodes add: client ] ].
+				  client dependencyTo: s ] ].
 		  clients := nodes asOrderedCollection ]
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> clients2 [
+
+	^ clients2 ifNil: [ 
+		  | nodes |
+		  nodes := Set new.
+		  self clients do: [ :s | 
+			  s rawModel incomingReferences do: [ :r | 
+				  | client class |
+				  class := self rootClass: r source.
+				  allEntities
+					  at: class
+					  ifPresent: [ :hn | client := hn ]
+					  ifAbsent: [ 
+						  client := self buildNodeFromEntity: class in: allEntities.
+						  client ifNotNil: [ nodes add: client ] ].
+				  client dependencyTo: s ] ].
+		  clients2 := nodes asOrderedCollection ]
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> clients3 [
+
+	^ clients3 ifNil: [ 
+		  | nodes |
+		  nodes := Set new.
+		  self clients2 do: [ :s | 
+			  s rawModel incomingReferences do: [ :r | 
+				  | client class |
+				  class := self rootClass: r source.
+				  allEntities
+					  at: class
+					  ifPresent: [ :hn | client := hn ]
+					  ifAbsent: [ 
+						  client := self buildNodeFromEntity: class in: allEntities.
+						  client ifNotNil: [ nodes add: client ] ].
+				  client dependencyTo: s ] ].
+		  clients3 := nodes asOrderedCollection ]
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> clients4 [
+
+	^ clients4 ifNil: [ 
+		  | nodes |
+		  nodes := Set new.
+		  self clients3 do: [ :s | 
+			  s rawModel incomingReferences do: [ :r | 
+				  | client class |
+				  class := self rootClass: r source.
+				  allEntities
+					  at: class
+					  ifPresent: [ :hn | client := hn ]
+					  ifAbsent: [ 
+						  client := self buildNodeFromEntity: class in: allEntities.
+						  client ifNotNil: [ nodes add: client ] ].
+				  client dependencyTo: s ] ].
+		  clients4 := nodes asOrderedCollection ]
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> clients5 [
+
+	^ clients5 ifNil: [ 
+		  | nodes |
+		  nodes := Set new.
+		  self clients4 do: [ :s | 
+			  s rawModel incomingReferences do: [ :r | 
+				  | client class |
+				  class := self rootClass: r source.
+				  allEntities
+					  at: class
+					  ifPresent: [ :hn | client := hn ]
+					  ifAbsent: [ 
+						  client := self buildNodeFromEntity: class in: allEntities.
+						  client ifNotNil: [ nodes add: client ] ].
+				  client dependencyTo: s ] ].
+		  clients5 := nodes asOrderedCollection ]
 ]
 
 { #category : #building }
@@ -533,11 +706,11 @@ MiNewVisuBuilder >> commonPackagesFor: classes [
 	groups := (classes groupedBy: [ :c | 
 		           (c rawModel atScope: FamixTPackage) anyOne ])
 		          associations.
-	^ groups collect: [ :a | 
-		  (self buildNodeFromEntity: a key)
-			  addAll: a value;
-			  iconName: #package;
-			  yourself ]
+	^ (groups collect: [ :a | 
+		   (self buildExtraNodeFromEntity: a key)
+			   addAll: a value;
+			   iconName: #package;
+			   yourself ]) sorted: [ :a :b | a name < b name ]
 ]
 
 { #category : #building }
@@ -558,15 +731,15 @@ MiNewVisuBuilder >> commonPackagesFor: classes in: aDict [
 MiNewVisuBuilder >> dtoClasses [
 
 	^ dtoClasses ifNil: [ 
-		  dtoClasses := OrderedCollection new.
-		  dtoClasses addAll: ((((FQStringQuery
+		  dtoClasses := OrderedCollection new
+		  "dtoClasses addAll: ((((FQStringQuery
 				      property: #name
 				      comparator: #beginsWith:
 				      valueToCompare: 'BaseModel') runOn:
 				     self services anyOne rawModel mooseModel allClasses) 
 				    flatCollect: [ :b | b subclassHierarchy ])
 				   collect: [ :c | self buildNodeFromEntity: c in: sharedDict ]
-				   thenReject: #isNil) ]
+				   thenReject: #isNil)" ]
 ]
 
 { #category : #building }
@@ -577,7 +750,8 @@ MiNewVisuBuilder >> elements [
 	entities addAll:
 		(mapModel entities sort: [ :a :b | a name < b name ]).
 
-	^ entities collect: [ :e | self buildNodeFromEntity: e in: clientNodes ]
+	^ entities collect: [ :e | 
+		  self buildNodeFromEntity: e in: allEntities ]
 ]
 
 { #category : #building }
@@ -649,11 +823,13 @@ MiNewVisuBuilder >> implementations [
 	^ implementations ifNil: [ 
 		  implementations := self services collect: [ :s | 
 			                     | newEntity |
-			                     newEntity := self buildNodeFromEntity:
-				                                  (s rawModel subclassHierarchy 
-					                                   detect: [ :sub | 
-					                                   sub isInterface not and: [ 
-						                                   sub isAbstract isNil ] ]) in: serverNodes.
+			                     newEntity := self
+				                                  buildNodeFromEntity:
+					                                  (s rawModel subclassHierarchy 
+						                                   detect: [ :sub | 
+						                                   sub isInterface not and: [ 
+							                                   sub isAbstract isNil ] ])
+				                                  in: allEntities.
 			                     s dependencyTo: newEntity.
 			                     newEntity ] ]
 ]
@@ -814,7 +990,7 @@ MiNewVisuBuilder >> serverDCR [
 					  ifPresent: [ :n | i dependencyTo: n ]
 					  ifAbsent: [ 
 						  | newNode |
-						  newNode := self buildNodeFromEntity: e in: serverNodes.
+						  newNode := self buildNodeFromEntity: e in: allEntities.
 						  newNode ifNotNil: [ 
 							  i dependencyTo: newNode.
 							  sdcr add: newNode ] ] ] ].
@@ -822,10 +998,126 @@ MiNewVisuBuilder >> serverDCR [
 ]
 
 { #category : #building }
+MiNewVisuBuilder >> serverDCR2 [
+
+	^ serverDCR2 ifNil: [ 
+		  | sdcr |
+		  sdcr := Set new.
+		  serverDCR2 := OrderedCollection new.
+		  self serverDCR do: [ :i | 
+			  | cli |
+			  cli := i rawModel allProviders
+				         reject: [ :c | 
+					         c isStub or: [ 
+						         c isClass and: [ 
+							         c superclassHierarchy anySatisfy: [ :sc | 
+								         sc name = 'RemoteServiceServlet' or: [ 
+									         sc name = 'RemoteService' ] ] ] ] ]
+				         thenCollect: [ :e | self rootClass: e ].
+			  cli asSet do: [ :e | 
+				  allEntities
+					  at: e
+					  ifPresent: [ :n | i dependencyTo: n ]
+					  ifAbsent: [ 
+						  | newNode |
+						  newNode := self buildNodeFromEntity: e in: allEntities.
+						  newNode ifNotNil: [ 
+							  i dependencyTo: newNode.
+							  serverDCR2 add: newNode ] ] ] ] ]
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> serverDCR3 [
+
+	^ serverDCR3 ifNil: [ 
+		  | sdcr |
+		  sdcr := Set new.
+		  serverDCR3 := OrderedCollection new.
+		  self serverDCR2 do: [ :i | 
+			  | cli |
+			  cli := i rawModel allProviders
+				         reject: [ :c | 
+					         c isStub or: [ 
+						         c isClass and: [ 
+							         c superclassHierarchy anySatisfy: [ :sc | 
+								         sc name = 'RemoteServiceServlet' or: [ 
+									         sc name = 'RemoteService' ] ] ] ] ]
+				         thenCollect: [ :e | self rootClass: e ].
+			  cli asSet do: [ :e | 
+				  allEntities
+					  at: e
+					  ifPresent: [ :n | i dependencyTo: n ]
+					  ifAbsent: [ 
+						  | newNode |
+						  newNode := self buildNodeFromEntity: e in: allEntities.
+						  newNode ifNotNil: [ 
+							  i dependencyTo: newNode.
+							  serverDCR3 add: newNode ] ] ] ] ]
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> serverDCR4 [
+
+	^ serverDCR4 ifNil: [ 
+		  | sdcr |
+		  sdcr := Set new.
+		  serverDCR4 := OrderedCollection new.
+		  self serverDCR3 do: [ :i | 
+			  | cli |
+			  cli := i rawModel allProviders
+				         reject: [ :c | 
+					         c isStub or: [ 
+						         c isClass and: [ 
+							         c superclassHierarchy anySatisfy: [ :sc | 
+								         sc name = 'RemoteServiceServlet' or: [ 
+									         sc name = 'RemoteService' ] ] ] ] ]
+				         thenCollect: [ :e | self rootClass: e ].
+			  cli asSet do: [ :e | 
+				  allEntities
+					  at: e
+					  ifPresent: [ :n | i dependencyTo: n ]
+					  ifAbsent: [ 
+						  | newNode |
+						  newNode := self buildNodeFromEntity: e in: allEntities.
+						  newNode ifNotNil: [ 
+							  i dependencyTo: newNode.
+							  serverDCR4 add: newNode ] ] ] ] ]
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> serverDCR5 [
+
+	^ serverDCR5 ifNil: [ 
+		  | sdcr |
+		  sdcr := Set new.
+		  serverDCR5 := OrderedCollection new.
+		  self serverDCR4 do: [ :i | 
+			  | cli |
+			  cli := i rawModel allProviders
+				         reject: [ :c | 
+					         c isStub or: [ 
+						         c isClass and: [ 
+							         c superclassHierarchy anySatisfy: [ :sc | 
+								         sc name = 'RemoteServiceServlet' or: [ 
+									         sc name = 'RemoteService' ] ] ] ] ]
+				         thenCollect: [ :e | self rootClass: e ].
+			  cli asSet do: [ :e | 
+				  allEntities
+					  at: e
+					  ifPresent: [ :n | i dependencyTo: n ]
+					  ifAbsent: [ 
+						  | newNode |
+						  newNode := self buildNodeFromEntity: e in: allEntities.
+						  newNode ifNotNil: [ 
+							  i dependencyTo: newNode.
+							  serverDCR5 add: newNode ] ] ] ] ]
+]
+
+{ #category : #building }
 MiNewVisuBuilder >> serverPackages [
 
 	^ serverPackages ifNil: [ 
-		  serverPackages := self commonPackagesFor: self serverDCR in: serverNodes ]
+		  serverPackages := self commonPackagesFor: self serverDCR ]
 ]
 
 { #category : #building }
@@ -884,7 +1176,8 @@ MiNewVisuBuilder >> visit: aVisualizationModel [
 	rootNode := HNode new.
 	currentChildrenNodes := OrderedCollection new.
 	rootShape := aVisualizationModel acceptVisitor: self.
-	self container add: rootShape
+	self container add: rootShape.
+	self container schildren: shapes
 ]
 
 { #category : #visiting }
@@ -911,10 +1204,14 @@ MiNewVisuBuilder >> visitBox: aMiNVBoxNode [
 { #category : #visiting }
 MiNewVisuBuilder >> visitElement: aMiNVElement [
 
-	| hNode |
+	| hNode shape |
 	hNode := aMiNVElement model.
 	rootNode add: hNode.
-	^ self shapeFor: hNode
+	shape := (self shapeFor: hNode)
+		         sparent: self container;
+		         yourself.
+	shapes add: shape.
+	^ shape
 ]
 
 { #category : #visiting }
