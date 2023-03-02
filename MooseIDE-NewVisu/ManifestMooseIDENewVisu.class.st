@@ -8,6 +8,11 @@ Class {
 }
 
 { #category : #'code-critics' }
+ManifestMooseIDENewVisu class >> ruleCodeCruftLeftInMethodsRuleV1FalsePositive [
+	^ #(#(#(#RGClassDefinition #(#MiNewVisuBuilder)) #'2023-02-08T12:55:09.209896+01:00') )
+]
+
+{ #category : #'code-critics' }
 ManifestMooseIDENewVisu class >> ruleCollectionProtocolRuleV1FalsePositive [
 	^ #(#(#(#RGMethodDefinition #(#MiNewVisuBuilder #clients #false)) #'2022-11-24T12:37:23.330758+01:00') )
 ]
@@ -19,5 +24,10 @@ ManifestMooseIDENewVisu class >> ruleInconsistentMethodClassificationRuleV1False
 
 { #category : #'code-critics' }
 ManifestMooseIDENewVisu class >> ruleLongMethodsRuleV1FalsePositive [
-	^ #(#(#(#RGMethodDefinition #(#MiNewVisuBuilder #buildShapes #false)) #'2023-01-16T14:28:25.213065+01:00') )
+	^ #(#(#(#RGMethodDefinition #(#MiNewVisuBuilder #buildShapes #false)) #'2023-01-16T14:28:25.213065+01:00') #(#(#RGMethodDefinition #(#MiNewVisuBuilder #build #false)) #'2023-02-01T14:17:32.006048+01:00') #(#(#RGClassDefinition #(#MiNewVisuBuilder)) #'2023-02-08T13:01:49.559245+01:00') )
+]
+
+{ #category : #'code-critics' }
+ManifestMooseIDENewVisu class >> ruleSearchingLiteralRuleV1FalsePositive [
+	^ #(#(#(#RGMethodDefinition #(#MiNewVisuBuilder #build #false)) #'2023-03-02T10:48:14.310135+01:00') )
 ]

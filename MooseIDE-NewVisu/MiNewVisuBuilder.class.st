@@ -29,10 +29,91 @@ Class {
 		'clients4',
 		'serverDCR4',
 		'clients5',
-		'serverDCR5'
+		'serverDCR5',
+		'clients6',
+		'serverDCR6',
+		'clients7',
+		'serverDCR7',
+		'clientDicts',
+		'serverDicts',
+		'spackageDict',
+		'cpackageDict',
+		'pNodes'
 	],
 	#category : #'MooseIDE-NewVisu'
 }
+
+{ #category : #partitioning }
+MiNewVisuBuilder >> addLayerToClientFromLevel: index [
+
+	| newDict currentDict hasAddedSomething |
+	hasAddedSomething := false.
+	newDict := Dictionary new.
+	currentDict := clientDicts at: index.
+	currentDict associationsDo: [ :assoc | 
+		| class hNode |
+		class := assoc key.
+		hNode := assoc value.
+		(self classDependenciesFor: class) do: [ :d | 
+			| response |
+			response := self classAlreadyPresent: d.
+			response = #server ifTrue: [ 
+				(self indexOf: d in: serverDicts) > 1 ifTrue: [ 
+					hNode dependencyTo: (self moveClass: d ToSharedfrom: serverDicts) ] ].
+			response = #shared ifTrue: [ 
+				hNode dependencyTo: (sharedDict at: d) ] ].
+		(self classDependantsFor: class) do: [ :d | 
+			| response |
+			response := self classAlreadyPresent: d.
+			response = #free ifTrue: [ 
+				| newNode |
+				newNode := self buildNodeFromEntity: d.
+				newNode dependencyTo: hNode.
+				newDict at: d put: newNode.
+				hasAddedSomething := true ].
+			response = #client ifTrue: [ 
+				newDict at: d ifPresent: [ :n | n dependencyTo: hNode ] ].
+			response = #server ifTrue: [ 
+				(self indexOf: d in: serverDicts) > 1 ifTrue: [ 
+					hNode dependencyTo: (self moveClass: d ToSharedfrom: serverDicts) ] ].
+			response = #shared ifTrue: [ 
+				(sharedDict at: d) dependencyTo: hNode ] ] ].
+	hasAddedSomething ifTrue: [ 
+		clientDicts add: newDict.
+		^ true ].
+	^ false
+]
+
+{ #category : #partitioning }
+MiNewVisuBuilder >> addLayerToServerFromLevel: index [
+
+	| hasAddedSomething newDict currentDict |
+	hasAddedSomething := false.
+	newDict := Dictionary new.
+	currentDict := serverDicts at: index.
+	currentDict associationsDo: [ :assoc | 
+		| class hNode |
+		class := assoc key.
+		hNode := assoc value.
+		(self classDependenciesFor: class) do: [ :d | 
+			| response |
+			response := self classAlreadyPresent: d.
+			response = #free ifTrue: [ 
+				| newNode |
+				newNode := self buildNodeFromEntity: d.
+				hNode dependencyTo: newNode.
+				newDict at: d put: newNode.
+				hasAddedSomething := true ].
+			response = #client ifTrue: [ 
+				(self indexOf: d in: clientDicts) > 1 ifTrue: [ 
+					hNode dependencyTo: (self moveClass: d ToSharedfrom: clientDicts) ] ].
+			response = #shared ifTrue: [ 
+				hNode dependencyTo: (sharedDict at: d) ] ] ].
+	hasAddedSomething ifTrue: [ 
+		serverDicts add: newDict.
+		^ true ].
+	^ false
+]
 
 { #category : #building }
 MiNewVisuBuilder >> allEnums [
@@ -81,11 +162,11 @@ MiNewVisuBuilder >> appServiceUID [
 MiNewVisuBuilder >> borderForSet [
 
 	^ RSBorder new
-		  width: 2;
+		  width: 3;
 		  capSquare;
 		  joinMiter;
 		  color: Smalltalk ui theme textColor;
-		  dashArray: #( 5 10 );
+		  dashArray: #(5 10);
 		  yourself
 ]
 
@@ -98,42 +179,51 @@ MiNewVisuBuilder >> boxChildrenColorFor: anHNode [
 { #category : #building }
 MiNewVisuBuilder >> build [
 
-	| description |
-	self services.
-	self implementations.
+	| description serverLayouts clientLayouts sharedGroups next |
+	self computePartitioning.
+	self entryPoints.
 
-	self serverDCR.
-	self clients.
-	self serverDCR2.
-	self clients2.
-	self serverDCR3.
-	self clients3.
-	self serverDCR4.
-	self clients4.
-	self serverDCR5.
-	self clients5.
+	serverLayouts := self buildLayoutsFor: serverDicts reversed: false.
+	clientLayouts := self buildLayoutsFor: clientDicts reversed: true.
+	sharedGroups := sharedDict values groupedBy: [ :n | 
+		                (n rawModel superclassHierarchy anySatisfy: [ :sc | 
+			                 sc name = 'BaseModel' or: [ 
+				                 sc name = 'BaseModelData' ] ])
+			                ifTrue: [ #dto ]
+			                ifFalse: [ 
+				                (n rawModel usesFamixTrait: FamixTEnum)
+					                ifTrue: [ #enum ]
+					                ifFalse: [ #other ] ] ].
+
 	(description := MiNVVerticalLayoutNode new)
 		gapSize: 90;
 		add: (MiNVBoxNode new
 				 name: 'Shared';
-				 layout: (MiNVHorizontalLayoutNode new
-						  gapSize: 40;
+				 layout: (MiNVFlowLayoutNode new
+						  gapSize: 80;
 						  add: (MiNVBoxNode new
-								   name: 'DTOs';
+								   name:
+									   'DTOs: ' , (sharedGroups at: #dto) size asString
+									   , ' classes';
 								   layout: (MiNVFlowLayoutNode new
+										    gapSize: 80;
 										    addAll:
-											    ((self commonPackagesFor: self dtoClasses) collect: [ 
-													     :c | 
+											    ((self commonPackagesFor: (sharedGroups at: #dto)) 
+												     collect: [ :c | 
 													     MiNVElement new
 														     model: c;
 														     yourself ]);
 										    yourself);
 								   yourself);
 						  add: (MiNVBoxNode new
-								   name: 'Enumerations';
+								   name:
+									   'Enums: ' , (sharedGroups at: #enum) size asString
+									   , ' classes';
 								   layout: (MiNVFlowLayoutNode new
+										    gapSize: 80;
 										    addAll:
-											    ((self commonPackagesFor: self allEnums) collect: [ :c | 
+											    ((self commonPackagesFor: (sharedGroups at: #enum)) 
+												     collect: [ :c | 
 													     MiNVElement new
 														     model: c;
 														     yourself ]);
@@ -147,110 +237,22 @@ MiNewVisuBuilder >> build [
 						  name: 'Client';
 						  layout: (MiNVHorizontalLayoutNode new
 								   gapSize: 80;
-								   add: (MiNVFlowLayoutNode new
-										    addAll:
-											    ((self commonPackagesFor: self clients5) collect: [ :c | 
-													     MiNVElement new
-														     model: c;
-														     yourself ]);
-										    yourself);
-								   add: (MiNVFlowLayoutNode new
-										    addAll:
-											    ((self commonPackagesFor: self clients4) collect: [ :c | 
-													     MiNVElement new
-														     model: c;
-														     yourself ]);
-										    yourself);
-								   add: (MiNVFlowLayoutNode new
-										    addAll:
-											    ((self commonPackagesFor: self clients3) collect: [ :c | 
-													     MiNVElement new
-														     model: c;
-														     yourself ]);
-										    yourself);
-								   add: (MiNVFlowLayoutNode new
-										    addAll:
-											    ((self commonPackagesFor: self clients2) collect: [ :c | 
-													     MiNVElement new
-														     model: c;
-														     yourself ]);
-										    yourself);
-								   add: (MiNVFlowLayoutNode new
-										    addAll: (self clientPackages collect: [ :c | 
-													     MiNVElement new
-														     model: c;
-														     yourself ]);
-										    yourself);
-								   add: (MiNVBoxNode new
-										    name: 'Services';
-										    layout: (MiNVVerticalLayoutNode new
-												     addAll: (self services collect: [ :c | 
-															      MiNVElement new
-																      model: c;
-																      yourself ]);
-												     yourself);
-										    yourself);
+								   addAll: clientLayouts;
 								   yourself);
 						  yourself);
 				 add: (MiNVBoxNode new
 						  name: 'Server';
 						  layout: (MiNVHorizontalLayoutNode new
 								   gapSize: 80;
-								   add: (MiNVBoxNode new
-										    name: 'Implementations';
-										    layout: (MiNVVerticalLayoutNode new
-												     addAll: (self implementations collect: [ :c | 
-															      MiNVElement new
-																      model: c;
-																      yourself ]);
-												     yourself);
-										    yourself);
-								   add: (MiNVFlowLayoutNode new
-										    addAll: (self serverPackages collect: [ :c | 
-													     MiNVElement new
-														     model: c;
-														     yourself ]);
-										    yourself);
-								   add: (MiNVFlowLayoutNode new
-										    addAll:
-											    ((self commonPackagesFor: self serverDCR2) collect: [ 
-													     :c | 
-													     MiNVElement new
-														     model: c;
-														     yourself ]);
-										    yourself);
-								   add: (MiNVFlowLayoutNode new
-										    addAll:
-											    ((self commonPackagesFor: self serverDCR3) collect: [ 
-													     :c | 
-													     MiNVElement new
-														     model: c;
-														     yourself ]);
-										    yourself);
-								   add: (MiNVFlowLayoutNode new
-										    addAll:
-											    ((self commonPackagesFor: self serverDCR4) collect: [ 
-													     :c | 
-													     MiNVElement new
-														     model: c;
-														     yourself ]);
-										    yourself);
-								   add: (MiNVFlowLayoutNode new
-										    addAll:
-											    ((self commonPackagesFor: self serverDCR5) collect: [ 
-													     :c | 
-													     MiNVElement new
-														     model: c;
-														     yourself ]);
-										    yourself);
+								   addAll: serverLayouts;
 								   yourself);
 						  yourself);
 				 yourself);
 		add: (MiNVBoxNode new
-				 name: 'All other classes';
+				 name: 'Shared classes';
 				 layout: (MiNVFlowLayoutNode new
 						  addAll:
-							  ((self commonPackagesFor: self allOtherModelClasses) 
+							  ((self commonPackagesFor: (sharedGroups at: #other)) 
 								   collect: [ :c | 
 									   MiNVElement new
 										   model: c;
@@ -259,7 +261,20 @@ MiNewVisuBuilder >> build [
 				 yourself).
 
 	self visit: description.
-	self renderLinesIn: self container
+	rootNode hideAllLinks.
+	pNodes do: #showAllLinks.
+
+	"next := RSBox new
+		        size: 40;
+		        color: Color red;
+		        yourself.
+	
+	self container add: next.
+	next setAsFixed.
+	next when: RSMouseClick do: [ self container. ]."
+
+	self renderLinesIn: self container.
+	self container @ self menuInteraction
 ]
 
 { #category : #building }
@@ -369,10 +384,33 @@ MiNewVisuBuilder >> buildExtraNodeFromEntity: anEntity [
 ]
 
 { #category : #building }
+MiNewVisuBuilder >> buildLayoutsFor: dicts reversed: reverse [
+
+	| layouts |
+	layouts := dicts withIndexCollect: [ :d :i | 
+		           | layout entities |
+		           i = 1
+			           ifTrue: [ 
+				           layout := MiNVVerticalLayoutNode new.
+				           entities := d values asOrderedCollection ]
+			           ifFalse: [ 
+				           layout := MiNVFlowLayoutNode new.
+				           entities := self commonPackagesFor: d values ].
+		           layout
+			           addAll: (entities collect: [ :c | 
+						            MiNVElement new
+							            model: c;
+							            yourself ]);
+			           yourself ].
+	^ reverse
+		  ifTrue: [ layouts reversed ]
+		  ifFalse: [ layouts ]
+]
+
+{ #category : #building }
 MiNewVisuBuilder >> buildNodeFromEntity: anEntity [
 
 	| node |
-	allEntities at: anEntity ifPresent: [ :n | ^ n ].
 	node := HNode new
 		        name:
 			        (String streamContents: [ :s | anEntity displayStringOn: s ]);
@@ -380,7 +418,6 @@ MiNewVisuBuilder >> buildNodeFromEntity: anEntity [
 		        iconName: #class;
 		        collapse;
 		        yourself.
-	allEntities at: anEntity put: node.
 	^ node
 ]
 
@@ -562,6 +599,33 @@ MiNewVisuBuilder >> buildShapes [
 				ltt1 }
 ]
 
+{ #category : #partitioning }
+MiNewVisuBuilder >> classAlreadyPresent: aClass [
+
+	clientDicts do: [ :d | d at: aClass ifPresent: [ ^ #client ] ].
+	serverDicts do: [ :d | d at: aClass ifPresent: [ ^ #server ] ].
+	sharedDict at: aClass ifPresent: [ ^ #shared ].
+	^ #free
+]
+
+{ #category : #partitioning }
+MiNewVisuBuilder >> classDependantsFor: aClass [
+
+	^ ((aClass queryAllIncoming withoutSelfLoops reject: [ :a | 
+		    (a target isCollection
+			     ifTrue: [ a target first ]
+			     ifFalse: [ a target ]) isStub ]) collect: [ :e | 
+		   self rootClass: e source ]) asSet
+]
+
+{ #category : #partitioning }
+MiNewVisuBuilder >> classDependenciesFor: aClass [
+
+	^ (aClass allProviders
+		  reject: [ :c | c isStub ]
+		  thenCollect: [ :e | self rootClass: e ]) asSet
+]
+
 { #category : #accessing }
 MiNewVisuBuilder >> clientNodesFor: anHNode [
 
@@ -583,40 +647,55 @@ MiNewVisuBuilder >> clientPackages [
 MiNewVisuBuilder >> clients [
 
 	^ clients ifNil: [ 
-		  | nodes |
-		  nodes := Set new.
+		  clients := OrderedCollection new.
 		  self services do: [ :s | 
-			  s rawModel incomingReferences do: [ :r | 
+			  s rawModel allClients do: [ :c | 
 				  | client class |
-				  class := self rootClass: r source.
-				  allEntities
+				  class := self rootClass: c.
+				  serverNodes
 					  at: class
-					  ifPresent: [ :hn | client := hn ]
+					  ifPresent: [ :n | 
+						  n dependencyTo: s.
+						  serverNodes removeKey: class.
+						  serverDCR remove: n ifAbsent: [  ].
+						  sharedDict at: class put: n.
+						  sharedNodes add: n ]
 					  ifAbsent: [ 
-						  client := self buildNodeFromEntity: class in: allEntities.
-						  client ifNotNil: [ nodes add: client ] ].
-				  client dependencyTo: s ] ].
-		  clients := nodes asOrderedCollection ]
+						  clientNodes
+							  at: class
+							  ifPresent: [ :hn | 
+								  client := hn.
+								  client dependencyTo: s ]
+							  ifAbsent: [ 
+								  client := self buildNodeFromEntity: class in: clientNodes.
+
+								  client ifNotNil: [ 
+									  client rawModel allProviders do: [ :p | 
+										  serverNodes
+											  at: p
+											  ifPresent: [ :e | client dependencyTo: e ] ].
+									  clients add: client ] ] ] ] ] ]
 ]
 
 { #category : #building }
 MiNewVisuBuilder >> clients2 [
 
 	^ clients2 ifNil: [ 
-		  | nodes |
-		  nodes := Set new.
+		  clients2 := OrderedCollection new.
 		  self clients do: [ :s | 
-			  s rawModel incomingReferences do: [ :r | 
+			  s rawModel allClients do: [ :c | 
 				  | client class |
-				  class := self rootClass: r source.
+				  class := self rootClass: c.
 				  allEntities
 					  at: class
-					  ifPresent: [ :hn | client := hn ]
+					  ifPresent: [ :hn | 
+						  client := hn.
+						  client dependencyTo: s ]
 					  ifAbsent: [ 
 						  client := self buildNodeFromEntity: class in: allEntities.
-						  client ifNotNil: [ nodes add: client ] ].
-				  client dependencyTo: s ] ].
-		  clients2 := nodes asOrderedCollection ]
+						  client rawModel allProviders do: [ :p | 
+							  allEntities at: p ifPresent: [ :e | client dependencyTo: e ] ].
+						  client ifNotNil: [ clients2 add: client ] ] ] ] ]
 ]
 
 { #category : #building }
@@ -680,33 +759,85 @@ MiNewVisuBuilder >> clients5 [
 ]
 
 { #category : #building }
+MiNewVisuBuilder >> clients6 [
+
+	^ clients6 ifNil: [ 
+		  | nodes |
+		  nodes := Set new.
+		  self clients5 do: [ :s | 
+			  s rawModel incomingReferences do: [ :r | 
+				  | client class |
+				  class := self rootClass: r source.
+				  allEntities
+					  at: class
+					  ifPresent: [ :hn | client := hn ]
+					  ifAbsent: [ 
+						  client := self buildNodeFromEntity: class in: allEntities.
+						  client ifNotNil: [ nodes add: client ] ].
+				  client dependencyTo: s ] ].
+		  clients6 := nodes asOrderedCollection ]
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> clients7 [
+
+	^ clients7 ifNil: [ 
+		  | nodes |
+		  nodes := Set new.
+		  self clients6 do: [ :s | 
+			  s rawModel incomingReferences do: [ :r | 
+				  | client class |
+				  class := self rootClass: r source.
+				  allEntities
+					  at: class
+					  ifPresent: [ :hn | client := hn ]
+					  ifAbsent: [ 
+						  client := self buildNodeFromEntity: class in: allEntities.
+						  client ifNotNil: [ nodes add: client ] ].
+				  client dependencyTo: s ] ].
+		  clients7 := nodes asOrderedCollection ]
+]
+
+{ #category : #building }
 MiNewVisuBuilder >> colorFor: node [
 
-	(node rawModel isClass and: [ 
-		 node parent rawModel notNil and: [ 
-			 node parent rawModel isPackage and: [ 
-				 clientNodes
-					 at: node rawModel
-					 ifPresent: [ true ]
-					 ifAbsent: [ false ] ] ] ]) ifTrue: [ 
-		^ scale scale:
-			  (node rawModel incomingReferences collectAsSet: [ :c | 
-				   self rootClass: c source ]) size + 1 ].
-	mapModel shouldColor ifFalse: [ ^ Color fromHexString: '7FC6F6' ].
+	| entity |
+	node color ifNotNil: [ :c | ^ c ].
+	entity := node rawModel.
 
-	^ (node rawModel mooseName includesSubstring: '::client')
+	(entity isType and: [ 
+		 (sharedDict includesKey: entity) and: [ self nodeIsShared: node ] ]) 
+		ifTrue: [ ^ Color fromHexString: '9970AB' ].
+
+	(entity isPackage and: [ 
+		 (sharedDict includesKey: node children anyOne rawModel) and: [ 
+			 node children anySatisfy: [ :child | self nodeIsShared: child ] ] ]) 
+		ifTrue: [ ^ Color fromHexString: '9970AB' ].
+
+	(entity isPackage and: [ self packagePresentInBothSides: entity ]) 
+		ifTrue: [ ^ Color fromHexString: 'DFC27D' ].
+
+
+	"mapModel shouldColor ifFalse: [ ^ Color fromHexString: '7FC6F6' ].
+
+	^ (self entityIsInClientPackage: entity)
 		  ifTrue: [ Color fromHexString: '7FC6F6' ]
-		  ifFalse: [ Color fromHexString: 'FFABA3' ]
+		  ifFalse: [ Color fromHexString: 'FFABA3' ]"
+	^ Color fromHexString: 'E0E0E0'
 ]
 
 { #category : #building }
 MiNewVisuBuilder >> commonPackagesFor: classes [
 
-	| groups |
+	| groups dict r |
+	r := self classAlreadyPresent: classes anyOne rawModel.
+	r = #client ifTrue: [ dict := cpackageDict ].
+	r = #server ifTrue: [ dict := spackageDict ].
 	groups := (classes groupedBy: [ :c | 
 		           (c rawModel atScope: FamixTPackage) anyOne ])
 		          associations.
 	^ (groups collect: [ :a | 
+		   dict ifNotNil: [ dict at: a key ifAbsentPut: a key ].
 		   (self buildExtraNodeFromEntity: a key)
 			   addAll: a value;
 			   iconName: #package;
@@ -725,6 +856,26 @@ MiNewVisuBuilder >> commonPackagesFor: classes in: aDict [
 			  addAll: a value;
 			  iconName: #package;
 			  yourself ]
+]
+
+{ #category : #partitioning }
+MiNewVisuBuilder >> computePartitioning [
+
+	| continueClient index continueServer |
+	self initializeFirstClientLayer.
+	self initializeFirstServerLayer.
+	self initializeSharedWithDTOs.
+
+	continueClient := true.
+	continueServer := true.
+	index := 1.
+
+	[ continueClient | continueServer ] whileTrue: [ 
+		continueServer ifTrue: [ 
+			continueServer := self addLayerToServerFromLevel: index ].
+		continueClient ifTrue: [
+			continueClient := self addLayerToClientFromLevel: index ].
+		index := index + 1 ]
 ]
 
 { #category : #building }
@@ -751,7 +902,42 @@ MiNewVisuBuilder >> elements [
 		(mapModel entities sort: [ :a :b | a name < b name ]).
 
 	^ entities collect: [ :e | 
-		  self buildNodeFromEntity: e in: allEntities ]
+		  self buildNodeFromEntity: e in: clientNodes ]
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> entityIsInClientPackage: anEntity [
+
+	| b |
+	b := false.
+	(anEntity isPackage and: [ anEntity name = 'client' ]) ifTrue: [ 
+		^ true ].
+
+	anEntity
+		allAtScope: FamixTPackage
+		until: [ :p | b := p name = 'client' ].
+
+	^ b
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> entryPoints [
+
+	| ep eps |
+	ep := ((FQStringQuery
+		        property: #name
+		        comparator: #=
+		        valueToCompare: 'EntryPoint') runOn:
+		       self services anyOne rawModel mooseModel) anyOne.
+	eps := ep subclassHierarchyGroup.
+	self classAlreadyPresent: eps first
+]
+
+{ #category : #partitioning }
+MiNewVisuBuilder >> fetchNodeFor: aClass in: dicts [
+
+	dicts do: [ :d | d at: aClass ifPresent: [ :n | ^ n ] ].
+	^ nil
 ]
 
 { #category : #building }
@@ -829,9 +1015,16 @@ MiNewVisuBuilder >> implementations [
 						                                   detect: [ :sub | 
 						                                   sub isInterface not and: [ 
 							                                   sub isAbstract isNil ] ])
-				                                  in: allEntities.
+				                                  in: serverNodes.
 			                     s dependencyTo: newEntity.
 			                     newEntity ] ]
+]
+
+{ #category : #partitioning }
+MiNewVisuBuilder >> indexOf: aClass in: dicts [
+
+	dicts withIndexDo: [ :d :i | d at: aClass ifPresent: [ ^ i ] ].
+	^ -1
 ]
 
 { #category : #initialization }
@@ -841,16 +1034,59 @@ MiNewVisuBuilder >> initialize [
 	self nodeStyler fontSize: 16.
 	self nodeStyler popup text: [ :e | 
 		e rawModel mooseName copyReplaceAll: '::' with: '.' ].
+	spackageDict := Dictionary new.
+	cpackageDict := Dictionary new.
 	allEntities := Dictionary new.
 	clientNodes := Dictionary new.
+	pNodes := OrderedCollection new.
 	serverNodes := Dictionary new.
 	sharedNodes := OrderedCollection new.
 	sharedDict := Dictionary new.
+	clientDicts := OrderedCollection new.
+	serverDicts := OrderedCollection new.
 	scale := NSScale pow
 		         domain: #( 1 500 );
 		         range: { 
 				         Color white.
 				         (Color fromHexString: '40004B') }
+]
+
+{ #category : #partitioning }
+MiNewVisuBuilder >> initializeFirstClientLayer [
+
+	clientDicts add: Dictionary new. "Initialisation of the fist layer of clients"
+	(mapModel entities sort: [ :a :b | a name < b name ]) do: [ :e | 
+		(clientDicts at: 1) at: e put: (self buildNodeFromEntity: e) ]
+]
+
+{ #category : #partitioning }
+MiNewVisuBuilder >> initializeFirstServerLayer [
+
+	serverDicts add: Dictionary new.
+	(clientDicts at: 1) associationsDo: [ :assoc | 
+		| impl class hNode newNode |
+		class := assoc key.
+		hNode := assoc value.
+		impl := class subclassHierarchy detect: [ :sub | 
+			        sub isInterface not and: [ sub isAbstract isNil ] ].
+		newNode := self buildNodeFromEntity: impl.
+		newNode dependencyTo: hNode.
+		(serverDicts at: 1) at: impl put: newNode ]
+]
+
+{ #category : #partitioning }
+MiNewVisuBuilder >> initializeSharedWithDTOs [
+
+	| baseModel |
+	baseModel := (((FQStringQuery
+		                property: #name
+		                comparator: #=
+		                valueToCompare: 'BaseModelData') runOn:
+		               self services anyOne rawModel mooseModel allClasses) 
+		              reject: [ :c | c subclassHierarchy isEmpty ]) anyOne.
+
+	baseModel subclassHierarchy do: [ :c | 
+		sharedDict at: c put: (self buildNodeFromEntity: c) ]
 ]
 
 { #category : #building }
@@ -880,6 +1116,19 @@ MiNewVisuBuilder >> mapModel: anObject [
 	mapModel := anObject
 ]
 
+{ #category : #partitioning }
+MiNewVisuBuilder >> moveClass: aClass ToSharedfrom: collectionOfDicts [
+
+	| hNode |
+	collectionOfDicts do: [ :d | 
+		(d removeKey: aClass ifAbsent: [ nil ]) ifNotNil: [ :n | 
+			hNode := n.
+			sharedDict at: aClass put: hNode.
+			^ hNode ] ].
+
+	^ nil
+]
+
 { #category : #building }
 MiNewVisuBuilder >> nodeAnnouncer [
 
@@ -901,6 +1150,29 @@ MiNewVisuBuilder >> nodeAnnouncer [
 					             self nodeStyler);
 		            yourself.
 	^ baseNode announcer
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> nodeIsShared: node [
+
+	| c s |
+	c := false.
+	s := false.
+	node dependencies ifEmpty: [ ^ false ].
+	node dependencies do: [ :d | 
+		d to = node ifTrue: [ 
+			| response |
+			response := self classAlreadyPresent: d from rawModel.
+			response = #client ifTrue: [ c := true ].
+			response = #server ifTrue: [ s := true ] ] ].
+	^ c & s
+]
+
+{ #category : #partitioning }
+MiNewVisuBuilder >> packagePresentInBothSides: package [
+
+	^ (spackageDict includesKey: package) and: [ 
+		  cpackageDict includesKey: package ]
 ]
 
 { #category : #accessing }
@@ -934,7 +1206,7 @@ MiNewVisuBuilder >> renderLinesIn: aCanvas [
 		| f t |
 		line announcer: announcer.
 		f := line from model rawModel.
-		t := line to model rawModel.
+		t := line to model rawModel
 
 		"((f mooseName includesSubstring: '::client') and: [ 
 			 (t mooseName includesSubstring: '::client') not ]) ifTrue: [ 
@@ -942,15 +1214,21 @@ MiNewVisuBuilder >> renderLinesIn: aCanvas [
 				width: 3;
 				color: Color magenta ].
 "
-"	
+		"	
 	(((self serverPackages collect: #rawModel) includes: f) and: [ (f mooseName includesSubstring: '::client' )
 	and: [( (self clientPackages collect: #rawModel) includes: t) and: [ (t mooseName includesSubstring: '::client') not ] ] ]) ifTrue: [ 	line
 				width: 3;
 				color: Color green muchDarker  ].
 	"
-	
-	
-		(f isMooseEntity & t isMooseEntity and: [ 
+		"(t isClass and: [ 
+			 f isClass and: [ 
+				 (f queryAllOutgoing intersection: t queryAllIncoming) 
+					 allSatisfy: [ :a | a class = FamixJavaAccess ] ] ]) ifTrue: [ 
+			line
+				width: 3;
+				color: Color red ]"
+
+		"(f isMooseEntity & t isMooseEntity and: [ 
 			 f isClass & t isClass and: [ 
 				 (f superclassHierarchy anySatisfy: [ :c | 
 					  c name = 'RemoteService' ]) and: [ 
@@ -958,7 +1236,7 @@ MiNewVisuBuilder >> renderLinesIn: aCanvas [
 						 c name = 'CAInovelanRemoteServiceServlet' ] ] ] ]) ifTrue: [ 
 			line
 				dashed;
-				color: Color green ] ]
+				color: Color green ]" ]
 ]
 
 { #category : #building }
@@ -977,23 +1255,22 @@ MiNewVisuBuilder >> serverDCR [
 		  self implementations do: [ :i | 
 			  | cli |
 			  cli := i rawModel allProviders
-				         reject: [ :c | 
-					         c isStub or: [ 
-						         c isClass and: [ 
-							         c superclassHierarchy anySatisfy: [ :sc | 
-								         sc name = 'RemoteServiceServlet' or: [ 
-									         sc name = 'RemoteService' ] ] ] ] ]
+				         reject: [ :c | c isStub ]
 				         thenCollect: [ :e | self rootClass: e ].
 			  cli do: [ :e | 
-				  serverNodes
+				  clientNodes
 					  at: e
 					  ifPresent: [ :n | i dependencyTo: n ]
 					  ifAbsent: [ 
-						  | newNode |
-						  newNode := self buildNodeFromEntity: e in: allEntities.
-						  newNode ifNotNil: [ 
-							  i dependencyTo: newNode.
-							  sdcr add: newNode ] ] ] ].
+						  serverNodes
+							  at: e
+							  ifPresent: [ :n | i dependencyTo: n ]
+							  ifAbsent: [ 
+								  | newNode |
+								  newNode := self buildNodeFromEntity: e in: serverNodes.
+								  newNode ifNotNil: [ 
+									  i dependencyTo: newNode.
+									  sdcr add: newNode ] ] ] ] ].
 		  serverDCR := sdcr asOrderedCollection ]
 ]
 
@@ -1114,6 +1391,64 @@ MiNewVisuBuilder >> serverDCR5 [
 ]
 
 { #category : #building }
+MiNewVisuBuilder >> serverDCR6 [
+
+	^ serverDCR6 ifNil: [ 
+		  | sdcr |
+		  sdcr := Set new.
+		  serverDCR6 := OrderedCollection new.
+		  self serverDCR5 do: [ :i | 
+			  | cli |
+			  cli := i rawModel allProviders
+				         reject: [ :c | 
+					         c isStub or: [ 
+						         c isClass and: [ 
+							         c superclassHierarchy anySatisfy: [ :sc | 
+								         sc name = 'RemoteServiceServlet' or: [ 
+									         sc name = 'RemoteService' ] ] ] ] ]
+				         thenCollect: [ :e | self rootClass: e ].
+			  cli asSet do: [ :e | 
+				  allEntities
+					  at: e
+					  ifPresent: [ :n | i dependencyTo: n ]
+					  ifAbsent: [ 
+						  | newNode |
+						  newNode := self buildNodeFromEntity: e in: allEntities.
+						  newNode ifNotNil: [ 
+							  i dependencyTo: newNode.
+							  serverDCR6 add: newNode ] ] ] ] ]
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> serverDCR7 [
+
+	^ serverDCR7 ifNil: [ 
+		  | sdcr |
+		  sdcr := Set new.
+		  serverDCR7 := OrderedCollection new.
+		  self serverDCR6 do: [ :i | 
+			  | cli |
+			  cli := i rawModel allProviders
+				         reject: [ :c | 
+					         c isStub or: [ 
+						         c isClass and: [ 
+							         c superclassHierarchy anySatisfy: [ :sc | 
+								         sc name = 'RemoteServiceServlet' or: [ 
+									         sc name = 'RemoteService' ] ] ] ] ]
+				         thenCollect: [ :e | self rootClass: e ].
+			  cli asSet do: [ :e | 
+				  allEntities
+					  at: e
+					  ifPresent: [ :n | i dependencyTo: n ]
+					  ifAbsent: [ 
+						  | newNode |
+						  newNode := self buildNodeFromEntity: e in: allEntities.
+						  newNode ifNotNil: [ 
+							  i dependencyTo: newNode.
+							  serverDCR7 add: newNode ] ] ] ] ]
+]
+
+{ #category : #building }
 MiNewVisuBuilder >> serverPackages [
 
 	^ serverPackages ifNil: [ 
@@ -1123,7 +1458,9 @@ MiNewVisuBuilder >> serverPackages [
 { #category : #building }
 MiNewVisuBuilder >> services [
 
-	^ services ifNil: [ services := self elements ]
+	clientDicts ifEmpty: [ 
+		clientDicts add: (Dictionary sizeFor: self elements size) ].
+	^ clientDicts at: 1
 ]
 
 { #category : #building }
