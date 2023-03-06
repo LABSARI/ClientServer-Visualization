@@ -38,18 +38,50 @@ Class {
 		'serverDicts',
 		'spackageDict',
 		'cpackageDict',
-		'pNodes'
+		'pNodes',
+		'continueClient',
+		'continueServer',
+		'index',
+		'order'
 	],
 	#category : #'MooseIDE-NewVisu'
 }
 
 { #category : #partitioning }
-MiNewVisuBuilder >> addLayerToClientFromLevel: index [
+MiNewVisuBuilder >> addDependenciesToShared [
+
+	"Add dependencies to shared from last added layers."
+
+	[ sharedDict associationsDo: [ :a | 
+		(self classDependantsFor: a key) do: [ :c | 
+			(serverDicts at: index)
+				at: c
+				ifPresent: [ :n | n dependencyTo: a value ] ].
+		(self classDependenciesFor: a key) do: [ :c | 
+			(clientDicts at: index)
+				at: c
+				ifPresent: [ :n | a value dependencyTo: n ] ] ] ] timeToRun
+		traceCr
+]
+
+{ #category : #partitioning }
+MiNewVisuBuilder >> addLayer [
+
+	continueClient ifTrue: [ 
+		continueClient := self addLayerToClientFromLevel: index ].
+	continueServer ifTrue: [ 
+		continueServer := self addLayerToServerFromLevel: index ].
+	index := index + 1.
+	self addDependenciesToShared
+]
+
+{ #category : #partitioning }
+MiNewVisuBuilder >> addLayerToClientFromLevel: level [
 
 	| newDict currentDict hasAddedSomething |
 	hasAddedSomething := false.
 	newDict := Dictionary new.
-	currentDict := clientDicts at: index.
+	currentDict := clientDicts at: level.
 	currentDict associationsDo: [ :assoc | 
 		| class hNode |
 		class := assoc key.
@@ -60,8 +92,8 @@ MiNewVisuBuilder >> addLayerToClientFromLevel: index [
 			response = #server ifTrue: [ 
 				(self indexOf: d in: serverDicts) > 1 ifTrue: [ 
 					hNode dependencyTo: (self moveClass: d ToSharedfrom: serverDicts) ] ].
-			response = #shared ifTrue: [ 
-				hNode dependencyTo: (sharedDict at: d) ] ].
+			response = #shared ifTrue: [ "hNode dependencyTo: (sharedDict at: d)"
+				 ] ].
 		(self classDependantsFor: class) do: [ :d | 
 			| response |
 			response := self classAlreadyPresent: d.
@@ -76,8 +108,8 @@ MiNewVisuBuilder >> addLayerToClientFromLevel: index [
 			response = #server ifTrue: [ 
 				(self indexOf: d in: serverDicts) > 1 ifTrue: [ 
 					hNode dependencyTo: (self moveClass: d ToSharedfrom: serverDicts) ] ].
-			response = #shared ifTrue: [ 
-				(sharedDict at: d) dependencyTo: hNode ] ] ].
+			response = #shared ifTrue: [ "(sharedDict at: d) dependencyTo: hNode"
+				 ] ] ].
 	hasAddedSomething ifTrue: [ 
 		clientDicts add: newDict.
 		^ true ].
@@ -85,12 +117,12 @@ MiNewVisuBuilder >> addLayerToClientFromLevel: index [
 ]
 
 { #category : #partitioning }
-MiNewVisuBuilder >> addLayerToServerFromLevel: index [
+MiNewVisuBuilder >> addLayerToServerFromLevel: level [
 
 	| hasAddedSomething newDict currentDict |
 	hasAddedSomething := false.
 	newDict := Dictionary new.
-	currentDict := serverDicts at: index.
+	currentDict := serverDicts at: level.
 	currentDict associationsDo: [ :assoc | 
 		| class hNode |
 		class := assoc key.
@@ -107,8 +139,8 @@ MiNewVisuBuilder >> addLayerToServerFromLevel: index [
 			response = #client ifTrue: [ 
 				(self indexOf: d in: clientDicts) > 1 ifTrue: [ 
 					hNode dependencyTo: (self moveClass: d ToSharedfrom: clientDicts) ] ].
-			response = #shared ifTrue: [ 
-				hNode dependencyTo: (sharedDict at: d) ] ] ].
+			response = #shared ifTrue: [ "hNode dependencyTo: (sharedDict at: d)"
+				 ] ] ].
 	hasAddedSomething ifTrue: [ 
 		serverDicts add: newDict.
 		^ true ].
@@ -179,99 +211,30 @@ MiNewVisuBuilder >> boxChildrenColorFor: anHNode [
 { #category : #building }
 MiNewVisuBuilder >> build [
 
-	| description serverLayouts clientLayouts sharedGroups next |
-	self computePartitioning.
+	| description next |
+	self initializePartitioning.
 	self entryPoints.
-
-	serverLayouts := self buildLayoutsFor: serverDicts reversed: false.
-	clientLayouts := self buildLayoutsFor: clientDicts reversed: true.
-	sharedGroups := sharedDict values groupedBy: [ :n | 
-		                (n rawModel superclassHierarchy anySatisfy: [ :sc | 
-			                 sc name = 'BaseModel' or: [ 
-				                 sc name = 'BaseModelData' ] ])
-			                ifTrue: [ #dto ]
-			                ifFalse: [ 
-				                (n rawModel usesFamixTrait: FamixTEnum)
-					                ifTrue: [ #enum ]
-					                ifFalse: [ #other ] ] ].
-
-	(description := MiNVVerticalLayoutNode new)
-		gapSize: 90;
-		add: (MiNVBoxNode new
-				 name: 'Shared';
-				 layout: (MiNVFlowLayoutNode new
-						  gapSize: 80;
-						  add: (MiNVBoxNode new
-								   name:
-									   'DTOs: ' , (sharedGroups at: #dto) size asString
-									   , ' classes';
-								   layout: (MiNVFlowLayoutNode new
-										    gapSize: 80;
-										    addAll:
-											    ((self commonPackagesFor: (sharedGroups at: #dto)) 
-												     collect: [ :c | 
-													     MiNVElement new
-														     model: c;
-														     yourself ]);
-										    yourself);
-								   yourself);
-						  add: (MiNVBoxNode new
-								   name:
-									   'Enums: ' , (sharedGroups at: #enum) size asString
-									   , ' classes';
-								   layout: (MiNVFlowLayoutNode new
-										    gapSize: 80;
-										    addAll:
-											    ((self commonPackagesFor: (sharedGroups at: #enum)) 
-												     collect: [ :c | 
-													     MiNVElement new
-														     model: c;
-														     yourself ]);
-										    yourself);
-								   yourself);
-						  yourself);
-				 yourself);
-		add: (MiNVHorizontalLayoutNode new
-				 gapSize: 90;
-				 add: (MiNVBoxNode new
-						  name: 'Client';
-						  layout: (MiNVHorizontalLayoutNode new
-								   gapSize: 80;
-								   addAll: clientLayouts;
-								   yourself);
-						  yourself);
-				 add: (MiNVBoxNode new
-						  name: 'Server';
-						  layout: (MiNVHorizontalLayoutNode new
-								   gapSize: 80;
-								   addAll: serverLayouts;
-								   yourself);
-						  yourself);
-				 yourself);
-		add: (MiNVBoxNode new
-				 name: 'Shared classes';
-				 layout: (MiNVFlowLayoutNode new
-						  addAll:
-							  ((self commonPackagesFor: (sharedGroups at: #other)) 
-								   collect: [ :c | 
-									   MiNVElement new
-										   model: c;
-										   yourself ]);
-						  yourself);
-				 yourself).
+	description := self buildDescription.
 
 	self visit: description.
-	rootNode hideAllLinks.
-	pNodes do: #showAllLinks.
 
-	"next := RSBox new
-		        size: 40;
-		        color: Color red;
+	next := RSBox new
+		        size: 50;
+		        color: (Color fromHexString: '67001F');
 		        yourself.
 	
 	self container add: next.
 	next setAsFixed.
-	next when: RSMouseClick do: [ self container. ]."
+	next when: RSMouseClick do: [ 
+		self container shapes do: #remove.
+		self addLayer.
+		description := self buildDescription.
+		self visit: description.
+		rootNode hideAllLinks.
+		sharedDict associationsDo: [ :a | 
+			a key class = FamixJavaEnum ifFalse: [ a value showAllLinks ] ].
+		self renderLinesIn: self container.
+		self container signalUpdate ].
 
 	self renderLinesIn: self container.
 	self container @ self menuInteraction
@@ -370,6 +333,92 @@ MiNewVisuBuilder >> buildCompositeEmptyNodeIn: shape [
 ]
 
 { #category : #building }
+MiNewVisuBuilder >> buildDescription [
+
+	| serverLayouts clientLayouts sharedGroups description |
+	serverLayouts := self buildLayoutsFor: serverDicts reversed: false.
+	clientLayouts := self buildLayoutsFor: clientDicts reversed: true.
+	sharedGroups := sharedDict values groupedBy: [ :n | 
+		                (n rawModel superclassHierarchy anySatisfy: [ :sc | 
+			                 sc name = 'BaseModel' or: [ 
+				                 sc name = 'BaseModelData' ] ])
+			                ifTrue: [ #dto ]
+			                ifFalse: [ 
+				                (n rawModel usesFamixTrait: FamixTEnum)
+					                ifTrue: [ #enum ]
+					                ifFalse: [ #other ] ] ].
+	sharedGroups at: #enum ifAbsentPut: [ OrderedCollection new ].
+	sharedGroups at: #other ifAbsentPut: [ OrderedCollection new ].
+	sharedGroups at: #dto ifAbsentPut: [ OrderedCollection new ].
+
+	(description := MiNVVerticalLayoutNode new)
+		gapSize: 90;
+		add: (MiNVBoxNode new
+				 name: 'Shared';
+				 layout: (MiNVFlowLayoutNode new
+						  gapSize: 80;
+						  add: (MiNVBoxNode new
+								   name:
+									   'DTOs: ' , (sharedGroups at: #dto) size asString
+									   , ' classes';
+								   layout: (MiNVFlowLayoutNode new
+										    gapSize: 80;
+										    addAll:
+											    ((self commonPackagesFor: (sharedGroups at: #dto)) 
+												     collect: [ :c | 
+													     MiNVElement new
+														     model: c;
+														     yourself ]);
+										    yourself);
+								   yourself);
+						  add: (MiNVBoxNode new
+								   name:
+									   'Enums: ' , (sharedGroups at: #enum) size asString
+									   , ' classes';
+								   layout: (MiNVFlowLayoutNode new
+										    gapSize: 80;
+										    addAll:
+											    ((self commonPackagesFor: (sharedGroups at: #enum)) 
+												     collect: [ :c | 
+													     MiNVElement new
+														     model: c;
+														     yourself ]);
+										    yourself);
+								   yourself);
+						  yourself);
+				 yourself);
+		add: (MiNVHorizontalLayoutNode new
+				 gapSize: 90;
+				 add: (MiNVBoxNode new
+						  name: 'Client';
+						  layout: (MiNVHorizontalLayoutNode new
+								   gapSize: 80;
+								   addAll: clientLayouts;
+								   yourself);
+						  yourself);
+				 add: (MiNVBoxNode new
+						  name: 'Server';
+						  layout: (MiNVHorizontalLayoutNode new
+								   gapSize: 80;
+								   addAll: serverLayouts;
+								   yourself);
+						  yourself);
+				 yourself);
+		add: (MiNVBoxNode new
+				 name: 'Purgatory: ', (sharedGroups at: #other) size asString, ' classes';
+				 layout: (MiNVFlowLayoutNode new
+						  addAll:
+							  ((self commonPackagesFor: (sharedGroups at: #other)) 
+								   collect: [ :c | 
+									   MiNVElement new
+										   model: c;
+										   yourself ]);
+						  yourself);
+				 yourself).
+	^ description
+]
+
+{ #category : #building }
 MiNewVisuBuilder >> buildExtraNodeFromEntity: anEntity [
 
 	| node |
@@ -392,7 +441,8 @@ MiNewVisuBuilder >> buildLayoutsFor: dicts reversed: reverse [
 		           i = 1
 			           ifTrue: [ 
 				           layout := MiNVVerticalLayoutNode new.
-				           entities := d values asOrderedCollection ]
+				           entities := d values asOrderedCollection sort: [ :a :b | 
+					                       a name < b name ] ]
 			           ifFalse: [ 
 				           layout := MiNVFlowLayoutNode new.
 				           entities := self commonPackagesFor: d values ].
@@ -830,6 +880,7 @@ MiNewVisuBuilder >> colorFor: node [
 MiNewVisuBuilder >> commonPackagesFor: classes [
 
 	| groups dict r |
+	classes ifEmpty: [ ^ OrderedCollection new ].
 	r := self classAlreadyPresent: classes anyOne rawModel.
 	r = #client ifTrue: [ dict := cpackageDict ].
 	r = #server ifTrue: [ dict := spackageDict ].
@@ -861,7 +912,7 @@ MiNewVisuBuilder >> commonPackagesFor: classes in: aDict [
 { #category : #partitioning }
 MiNewVisuBuilder >> computePartitioning [
 
-	| continueClient index continueServer |
+	
 	self initializeFirstClientLayer.
 	self initializeFirstServerLayer.
 	self initializeSharedWithDTOs.
@@ -870,12 +921,12 @@ MiNewVisuBuilder >> computePartitioning [
 	continueServer := true.
 	index := 1.
 
-	[ continueClient | continueServer ] whileTrue: [ 
-		continueServer ifTrue: [ 
-			continueServer := self addLayerToServerFromLevel: index ].
-		continueClient ifTrue: [
-			continueClient := self addLayerToClientFromLevel: index ].
-		index := index + 1 ]
+
+	continueServer ifTrue: [ 
+		continueServer := self addLayerToServerFromLevel: index ].
+	continueClient ifTrue: [ 
+		continueClient := self addLayerToClientFromLevel: index ].
+	index := index + 1
 ]
 
 { #category : #building }
@@ -1055,7 +1106,7 @@ MiNewVisuBuilder >> initialize [
 MiNewVisuBuilder >> initializeFirstClientLayer [
 
 	clientDicts add: Dictionary new. "Initialisation of the fist layer of clients"
-	(mapModel entities sort: [ :a :b | a name < b name ]) do: [ :e | 
+	mapModel entities do: [ :e | 
 		(clientDicts at: 1) at: e put: (self buildNodeFromEntity: e) ]
 ]
 
@@ -1072,6 +1123,20 @@ MiNewVisuBuilder >> initializeFirstServerLayer [
 		newNode := self buildNodeFromEntity: impl.
 		newNode dependencyTo: hNode.
 		(serverDicts at: 1) at: impl put: newNode ]
+]
+
+{ #category : #partitioning }
+MiNewVisuBuilder >> initializePartitioning [
+
+	
+	self initializeFirstClientLayer.
+	self initializeFirstServerLayer.
+	self initializeSharedWithDTOs.
+
+	continueClient := true.
+	continueServer := true.
+	index := 1.
+	order := 1
 ]
 
 { #category : #partitioning }

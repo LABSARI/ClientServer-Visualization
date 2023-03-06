@@ -29,5 +29,5 @@ ManifestMooseIDENewVisu class >> ruleLongMethodsRuleV1FalsePositive [
 
 { #category : #'code-critics' }
 ManifestMooseIDENewVisu class >> ruleSearchingLiteralRuleV1FalsePositive [
-	^ #(#(#(#RGMethodDefinition #(#MiNewVisuBuilder #build #false)) #'2023-03-02T10:48:14.310135+01:00') )
+	^ #(#(#(#RGMethodDefinition #(#MiNewVisuBuilder #build #false)) #'2023-03-02T10:48:14.310135+01:00') #(#(#RGMethodDefinition #(#MiNewVisuBuilder #buildDescription #false)) #'2023-03-03T15:26:16.065919+01:00') )
 ]
