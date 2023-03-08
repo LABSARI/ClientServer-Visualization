@@ -3,7 +3,8 @@ Class {
 	#superclass : #MiAbstractModel,
 	#instVars : [
 		'entities',
-		'settings'
+		'settings',
+		'mooseModel'
 	],
 	#category : #'MooseIDE-NewVisu'
 }
@@ -37,6 +38,18 @@ MiNewVisuModel >> initializeSettings [
 		help: '' ;
 		yourself)
 		named: #shouldColor
+]
+
+{ #category : #accessing }
+MiNewVisuModel >> mooseModel [
+
+	^ mooseModel ifNil: [ mooseModel := entities anyOne mooseModel ]
+]
+
+{ #category : #accessing }
+MiNewVisuModel >> mooseModel: anObject [
+
+	mooseModel := anObject
 ]
 
 { #category : #initialization }

@@ -25,6 +25,12 @@ MiNewVisuBrowser class >> title [
 	^ 'New Visualization'
 ]
 
+{ #category : #'as yet unclassified' }
+MiNewVisuBrowser class >> visuClass [
+
+	^ MiNewVisu
+]
+
 { #category : #testing }
 MiNewVisuBrowser >> canFollowEntity: anObject [
 
@@ -35,9 +41,9 @@ MiNewVisuBrowser >> canFollowEntity: anObject [
 MiNewVisuBrowser >> followEntity: anEntity [
 
 	model entities: (anEntity asMooseGroup select: [ :e | 
-			 e isClass and: [ 
-				 (e superclassHierarchy anySatisfy: [ :c | 
-					  c name = 'RemoteService' ]) and: [ e isStub not ] ] ]).
+			 e isInterface and: [ 
+				 (e superclassHierarchy anySatisfy: [ :c | c name = 'Remote' ]) 
+					 and: [ e isStub not ] ] ]).
 	self runVisualization
 ]
 
@@ -58,7 +64,7 @@ MiNewVisuBrowser >> initializeLayout [
 { #category : #initialization }
 MiNewVisuBrowser >> initializePresenters [
 
-	visualization := self instantiate: MiNewVisu on: model.
+	visualization := self instantiate: self class visuClass on: model.
 	self initializeLayout
 ]
 

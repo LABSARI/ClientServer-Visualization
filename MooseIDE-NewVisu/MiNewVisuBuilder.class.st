@@ -48,6 +48,25 @@ Class {
 }
 
 { #category : #partitioning }
+MiNewVisuBuilder >> addDependenciesFrom: sourcesDict to: targetsDict [
+
+	self
+		addDependenciesFrom: sourcesDict
+		to: targetsDict
+		execute: [ :a :b |  ]
+]
+
+{ #category : #partitioning }
+MiNewVisuBuilder >> addDependenciesFrom: sourcesDict to: targetsDict execute: aBlock [
+
+	sourcesDict associationsDo: [ :a | 
+		(self classDependenciesFor: a key) do: [ :d | 
+			targetsDict at: d ifPresent: [ :target | 
+				a value dependencyTo: target.
+				aBlock value: a value: d ] ] ]
+]
+
+{ #category : #partitioning }
 MiNewVisuBuilder >> addDependenciesToShared [
 
 	"Add dependencies to shared from last added layers."
@@ -212,8 +231,9 @@ MiNewVisuBuilder >> boxChildrenColorFor: anHNode [
 MiNewVisuBuilder >> build [
 
 	| description next |
+
 	self initializePartitioning.
-	self entryPoints.
+	
 	description := self buildDescription.
 
 	self visit: description.
@@ -231,8 +251,9 @@ MiNewVisuBuilder >> build [
 		description := self buildDescription.
 		self visit: description.
 		rootNode hideAllLinks.
-		sharedDict associationsDo: [ :a | 
-			a key class = FamixJavaEnum ifFalse: [ a value showAllLinks ] ].
+		pNodes do: #showAllLinks.
+		"sharedDict associationsDo: [ :a | 
+			a key class = FamixJavaEnum ifFalse: [ a value showAllLinks ] ]."
 		self renderLinesIn: self container.
 		self container signalUpdate ].
 
@@ -441,8 +462,9 @@ MiNewVisuBuilder >> buildLayoutsFor: dicts reversed: reverse [
 		           i = 1
 			           ifTrue: [ 
 				           layout := MiNVVerticalLayoutNode new.
-				           entities := d values asOrderedCollection sort: [ :a :b | 
-					                       a name < b name ] ]
+				           entities := (self groupClassesByChar: d values) sort: [ 
+					                       :a 
+					                       :b | a name < b name ] ]
 			           ifFalse: [ 
 				           layout := MiNVFlowLayoutNode new.
 				           entities := self commonPackagesFor: d values ].
@@ -672,8 +694,8 @@ MiNewVisuBuilder >> classDependantsFor: aClass [
 MiNewVisuBuilder >> classDependenciesFor: aClass [
 
 	^ (aClass allProviders
-		  reject: [ :c | c isStub ]
-		  thenCollect: [ :e | self rootClass: e ]) asSet
+		   reject: [ :c | c isStub ]
+		   thenCollect: [ :e | self rootClass: e ]) asSet
 ]
 
 { #category : #accessing }
@@ -853,7 +875,10 @@ MiNewVisuBuilder >> colorFor: node [
 
 	| entity |
 	node color ifNotNil: [ :c | ^ c ].
+
+
 	entity := node rawModel.
+	entity isMooseObject ifFalse: [ ^ Color fromHexString: 'E0E0E0' ].
 
 	(entity isType and: [ 
 		 (sharedDict includesKey: entity) and: [ self nodeIsShared: node ] ]) 
@@ -929,6 +954,20 @@ MiNewVisuBuilder >> computePartitioning [
 	index := index + 1
 ]
 
+{ #category : #partitioning }
+MiNewVisuBuilder >> dao [
+
+	| sa |
+	sa := (((FQStringQuery
+		         property: #name
+		         comparator: #=
+		         valueToCompare: 'DaoAbstract') runOn:
+		        self services anyOne rawModel mooseModel allClasses) 
+		       reject: [ :c | c subclassHierarchy isEmpty ]) anyOne.
+
+	^ sa subclassHierarchy collect: [ :s | self buildNodeFromEntity: s ]
+]
+
 { #category : #building }
 MiNewVisuBuilder >> dtoClasses [
 
@@ -942,6 +981,20 @@ MiNewVisuBuilder >> dtoClasses [
 				    flatCollect: [ :b | b subclassHierarchy ])
 				   collect: [ :c | self buildNodeFromEntity: c in: sharedDict ]
 				   thenReject: #isNil)" ]
+]
+
+{ #category : #partitioning }
+MiNewVisuBuilder >> eServices [
+
+	| sa |
+	sa := (((FQStringQuery
+		         property: #name
+		         comparator: #=
+		         valueToCompare: 'ServiceAbstract') runOn:
+		        self services anyOne rawModel mooseModel allClasses) 
+		       reject: [ :c | c subclassHierarchy isEmpty ]) anyOne.
+
+	^ sa subclassHierarchy collect: [ :s | self buildNodeFromEntity: s ]
 ]
 
 { #category : #building }
@@ -989,6 +1042,23 @@ MiNewVisuBuilder >> fetchNodeFor: aClass in: dicts [
 
 	dicts do: [ :d | d at: aClass ifPresent: [ :n | ^ n ] ].
 	^ nil
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> groupClassesByChar: classes [
+
+	| groups |
+	classes ifEmpty: [ ^ OrderedCollection new ].
+	groups := (classes groupedBy: [ :c | 
+		           (c name at:
+			            (((c name beginsWith: 'Uc') or: [ 
+				              c name beginsWith: 'UC' ])
+				             ifTrue: [ 3 ]
+				             ifFalse: [ 1 ])) uppercase ]) associations.
+	^ (groups collect: [ :a | 
+		   (self buildExtraNodeFromEntity: a key)
+			   addAll: a value;
+			   yourself ]) sorted: [ :a :b | a name < b name ]
 ]
 
 { #category : #building }
@@ -1093,6 +1163,7 @@ MiNewVisuBuilder >> initialize [
 	serverNodes := Dictionary new.
 	sharedNodes := OrderedCollection new.
 	sharedDict := Dictionary new.
+
 	clientDicts := OrderedCollection new.
 	serverDicts := OrderedCollection new.
 	scale := NSScale pow
@@ -1115,24 +1186,25 @@ MiNewVisuBuilder >> initializeFirstServerLayer [
 
 	serverDicts add: Dictionary new.
 	(clientDicts at: 1) associationsDo: [ :assoc | 
-		| impl class hNode newNode |
+		| class hNode newNode |
 		class := assoc key.
 		hNode := assoc value.
-		impl := class subclassHierarchy detect: [ :sub | 
-			        sub isInterface not and: [ sub isAbstract isNil ] ].
-		newNode := self buildNodeFromEntity: impl.
-		newNode dependencyTo: hNode.
-		(serverDicts at: 1) at: impl put: newNode ]
+		(class implementations collect: [ :i | i implementingClass ])
+			detect: [ :sub | sub isAbstract isNil ]
+			ifFound: [ :e | 
+				newNode := self buildNodeFromEntity: e.
+				newNode dependencyTo: hNode.
+				(serverDicts at: 1) at: e put: newNode ]
+			ifNone: [  ] ]
 ]
 
 { #category : #partitioning }
 MiNewVisuBuilder >> initializePartitioning [
 
-	
 	self initializeFirstClientLayer.
 	self initializeFirstServerLayer.
 	self initializeSharedWithDTOs.
-
+	
 	continueClient := true.
 	continueServer := true.
 	index := 1.
@@ -1142,14 +1214,15 @@ MiNewVisuBuilder >> initializePartitioning [
 { #category : #partitioning }
 MiNewVisuBuilder >> initializeSharedWithDTOs [
 
-	| baseModel |
+	| baseModel dtoAbstractClasses |
+	dtoAbstractClasses := { 'EntiteAbstract'. 'EnumerationAbstract' }.
 	baseModel := (((FQStringQuery
 		                property: #name
 		                comparator: #=
-		                valueToCompare: 'BaseModelData') runOn:
+		                valueToCompare: 'EntitePersistanteAbstract') runOn:
 		               self services anyOne rawModel mooseModel allClasses) 
 		              reject: [ :c | c subclassHierarchy isEmpty ]) anyOne.
-
+	sharedDict at: baseModel put: (self buildNodeFromEntity: baseModel).
 	baseModel subclassHierarchy do: [ :c | 
 		sharedDict at: c put: (self buildNodeFromEntity: c) ]
 ]
@@ -1179,6 +1252,12 @@ MiNewVisuBuilder >> mapModel [
 MiNewVisuBuilder >> mapModel: anObject [
 
 	mapModel := anObject
+]
+
+{ #category : #accessing }
+MiNewVisuBuilder >> mooseModel [
+
+	^ self mapModel mooseModel
 ]
 
 { #category : #partitioning }
@@ -1271,8 +1350,8 @@ MiNewVisuBuilder >> renderLinesIn: aCanvas [
 		| f t |
 		line announcer: announcer.
 		f := line from model rawModel.
-		t := line to model rawModel
-
+		t := line to model rawModel.
+		line color: Color red.
 		"((f mooseName includesSubstring: '::client') and: [ 
 			 (t mooseName includesSubstring: '::client') not ]) ifTrue: [ 
 			line
@@ -1308,7 +1387,13 @@ MiNewVisuBuilder >> renderLinesIn: aCanvas [
 MiNewVisuBuilder >> rootClass: anEntity [
 
 	^ (anEntity atScopeWithProperty: [ :c | 
-		   c isType and: [ c isAnonymousClass not ] ]) anyOne
+		   c isType and: [ 
+			   c isException or: [ 
+				   c isInterface or: [ 
+					   c isParameterizedType or: [ 
+						   c class = FamixJavaEnum or: [ 
+							   c isClass and: [ c isAnonymousClass not ] ] ] ] ] ] ])
+		  anyOne
 ]
 
 { #category : #building }
@@ -1595,6 +1680,7 @@ MiNewVisuBuilder >> visitBox: aMiNVBoxNode [
 		border: self borderForSet;
 		padding: 50.
 	shape add: label.
+	label pushBack. 
 	RSLocation new
 		left;
 		top;
