@@ -5,7 +5,8 @@ Class {
 		'daoDict',
 		'serviceDict',
 		'daoTag',
-		'serviceTag'
+		'serviceTag',
+		'implAndIntViolation'
 	],
 	#category : #'MooseIDE-NewVisu'
 }
@@ -13,12 +14,13 @@ Class {
 { #category : #initialization }
 MiMultiLayerVisuBuilder >> addDependenciesToDaoAndTag [
 
-
 	self
 		addDependenciesFrom: (serverDicts at: 1)
 		to: daoDict
 		execute: [ :impl :dao | 
-		(dao hasTag: daoTag) ifFalse: [ dao tagWith: daoTag ] ]
+			dao tagWith: daoTag.
+			impl tagWith: implAndIntViolation.
+			pNodes add: (daoDict at: dao) ]
 ]
 
 { #category : #initialization }
@@ -62,6 +64,7 @@ MiMultiLayerVisuBuilder >> addLayerToServerFromLevel: level [
 				hasAddedSomething := true ].
 			response = #client ifTrue: [ 
 				(self indexOf: d in: clientDicts) > 1 ifTrue: [ 
+					level = 1 ifTrue: [ class tagWith: implAndIntViolation ].
 					hNode dependencyTo: (self moveClass: d ToSharedfrom: clientDicts) ] ].
 			response = #shared ifTrue: [ "hNode dependencyTo: (sharedDict at: d)"
 				 ] ] ].
@@ -74,21 +77,9 @@ MiMultiLayerVisuBuilder >> addLayerToServerFromLevel: level [
 { #category : #building }
 MiMultiLayerVisuBuilder >> buildDescription [
 
-	| serverLayouts clientLayouts sharedGroups description |
+	| serverLayouts clientLayouts description |
 	serverLayouts := self buildLayoutsFor: serverDicts reversed: false.
 	clientLayouts := self buildLayoutsFor: clientDicts reversed: true.
-	
-	sharedGroups := sharedDict values groupedBy: [ :n | 
-		                (n rawModel superclassHierarchy anySatisfy: [ :sc | 
-			                 sc name = 'EntitePersistanteAbstract' ])
-			                ifTrue: [ #dto ]
-			                ifFalse: [ 
-				                (n rawModel usesFamixTrait: FamixTEnum)
-					                ifTrue: [ #enum ]
-					                ifFalse: [ #other ] ] ].
-	sharedGroups at: #enum ifAbsentPut: [ OrderedCollection new ].
-	sharedGroups at: #other ifAbsentPut: [ OrderedCollection new ].
-	sharedGroups at: #dto ifAbsentPut: [ OrderedCollection new ].
 
 
 
@@ -97,16 +88,19 @@ MiMultiLayerVisuBuilder >> buildDescription [
 		gapSize: 90;
 		add: (MiNVBoxNode new
 				 name:
-					 'Transverse DTOs: ' , (sharedGroups at: #dto) size asString
+					 'Transverse DTOs: ' , sharedDict values size asString
 					 , ' classes';
 				 layout: (MiNVFlowLayoutNode new
 						  gapSize: 80;
-						  addAll:
-							  ((self commonPackagesFor: (sharedGroups at: #dto)) collect: [ 
-									   :c | 
-									   MiNVElement new
-										   model: c;
-										   yourself ]);
+						  addAll: ({ (HNode new
+								    name: 'DTOs';
+								    rawModel: 'DTOs';
+								    addAll: (self commonPackagesFor: sharedDict values);
+								    collapse;
+								    yourself) } collect: [ :c | 
+								   MiNVElement new
+									   model: c;
+									   yourself ]);
 						  yourself);
 				 yourself);
 		add: (MiNVHorizontalLayoutNode new
@@ -128,12 +122,10 @@ MiMultiLayerVisuBuilder >> buildDescription [
 				 yourself);
 		add: (MiNVBoxNode new
 				 name:
-					 'Purgatory: ' , (sharedGroups at: #other) size asString
-					 , ' classes';
+					 'Purgatory: ' , purgatoryDict values size asString , ' classes';
 				 layout: (MiNVFlowLayoutNode new
 						  addAll:
-							  ((self commonPackagesFor: (sharedGroups at: #other)) 
-								   collect: [ :c | 
+							  ((self commonPackagesFor: purgatoryDict values) collect: [ :c | 
 									   MiNVElement new
 										   model: c;
 										   yourself ]);
@@ -170,6 +162,41 @@ MiMultiLayerVisuBuilder >> buildDescription [
 				                yourself);
 		               yourself.
 	^ description
+]
+
+{ #category : #building }
+MiMultiLayerVisuBuilder >> buildLayoutsFor: dicts reversed: reverse [
+
+	| layouts |
+	layouts := dicts withIndexCollect: [ :d :i | 
+		           | box layout entities |
+		           i = 1
+			           ifTrue: [ 
+				           | filtered |
+				           filtered := (self entitiesWithViolationFrom: d values)
+					                       asOrderedCollection.
+
+				           layout := MiNVVerticalLayoutNode new.
+				           box := MiNVBoxNode new
+					                  name:
+						                  filtered size asString , '/'
+						                  , d values size asString;
+					                  layout: layout;
+					                  yourself.
+				           entities := filtered sort: [ :a :b | a name < b name ] ]
+			           ifFalse: [ 
+				           layout := MiNVFlowLayoutNode new.
+				           entities := self commonPackagesFor: d values ].
+		           layout addAll: (entities collect: [ :c | 
+				            MiNVElement new
+					            model: c;
+					            yourself ]).
+		           i = 1
+			           ifTrue: [ box ]
+			           ifFalse: [ layout ] ].
+	^ reverse
+		  ifTrue: [ layouts reversed ]
+		  ifFalse: [ layouts ]
 ]
 
 { #category : #partitioning }
@@ -220,6 +247,13 @@ MiMultiLayerVisuBuilder >> colorFor: node [
 	^ Color fromHexString: 'E0E0E0'
 ]
 
+{ #category : #building }
+MiMultiLayerVisuBuilder >> entitiesWithViolationFrom: aCollectionOfHNodes [
+
+	^ aCollectionOfHNodes select: [ :hn | 
+		  hn rawModel hasTag: implAndIntViolation ]
+]
+
 { #category : #initialization }
 MiMultiLayerVisuBuilder >> initialize [
 
@@ -229,11 +263,27 @@ MiMultiLayerVisuBuilder >> initialize [
 ]
 
 { #category : #initialization }
+MiMultiLayerVisuBuilder >> initializeFirstServerLayer [
+
+	| remoteServer |
+	serverDicts add: Dictionary new.
+	remoteServer := ((FQStringQuery
+		                  property: #name
+		                  comparator: #=
+		                  valueToCompare: 'RemoteServer') runOn:
+		                 self services anyOne rawModel mooseModel allClasses)
+		                anyOne.
+	remoteServer subclassHierarchy do: [ :sc | 
+		(serverDicts at: 1) at: sc put: (self buildNodeFromEntity: sc) ]
+]
+
+{ #category : #initialization }
 MiMultiLayerVisuBuilder >> initializeOtherLayers [
 
 	daoTag := (self mooseModel tagNamed: 'daoViolation')
 		          color: (Color fromHexString: 'B2182B');
 		          yourself.
+	implAndIntViolation := (self mooseModel tagNamed: 'implAndIntViolation').
 	serviceTag := (self mooseModel tagNamed: 'serviceNoViolation')
 		              color: (Color fromHexString: 'EF8A62');
 		              yourself.
@@ -249,6 +299,24 @@ MiMultiLayerVisuBuilder >> initializePartitioning [
 
 	self addDependenciesToDaoAndTag.
 	self addDependenciesToServicesAndTag
+]
+
+{ #category : #initialization }
+MiMultiLayerVisuBuilder >> initializeSharedWithDTOs [
+
+	| baseModel dtoAbstractClasses |
+	dtoAbstractClasses := { 'EntiteAbstract'. 'EnumerationAbstract' }.
+
+	dtoAbstractClasses do: [ :dto | 
+		baseModel := (((FQStringQuery
+			                property: #name
+			                comparator: #=
+			                valueToCompare: dto) runOn:
+			               self services anyOne rawModel mooseModel allClasses) 
+			              reject: [ :c | c subclassHierarchy isEmpty ]) anyOne.
+		sharedDict at: baseModel put: (self buildNodeFromEntity: baseModel).
+		baseModel subclassHierarchy do: [ :c | 
+			sharedDict at: c put: (self buildNodeFromEntity: c) ] ]
 ]
 
 { #category : #building }

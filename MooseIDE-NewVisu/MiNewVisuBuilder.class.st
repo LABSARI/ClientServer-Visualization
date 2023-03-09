@@ -42,7 +42,8 @@ Class {
 		'continueClient',
 		'continueServer',
 		'index',
-		'order'
+		'order',
+		'purgatoryDict'
 	],
 	#category : #'MooseIDE-NewVisu'
 }
@@ -63,7 +64,7 @@ MiNewVisuBuilder >> addDependenciesFrom: sourcesDict to: targetsDict execute: aB
 		(self classDependenciesFor: a key) do: [ :d | 
 			targetsDict at: d ifPresent: [ :target | 
 				a value dependencyTo: target.
-				aBlock value: a value: d ] ] ]
+				aBlock value: a key value: d ] ] ]
 ]
 
 { #category : #partitioning }
@@ -91,7 +92,7 @@ MiNewVisuBuilder >> addLayer [
 	continueServer ifTrue: [ 
 		continueServer := self addLayerToServerFromLevel: index ].
 	index := index + 1.
-	self addDependenciesToShared
+	"self addDependenciesToShared"
 ]
 
 { #category : #partitioning }
@@ -231,9 +232,8 @@ MiNewVisuBuilder >> boxChildrenColorFor: anHNode [
 MiNewVisuBuilder >> build [
 
 	| description next |
-
 	self initializePartitioning.
-	
+
 	description := self buildDescription.
 
 	self visit: description.
@@ -242,10 +242,16 @@ MiNewVisuBuilder >> build [
 		        size: 50;
 		        color: (Color fromHexString: '67001F');
 		        yourself.
-	
+	rootNode hideAllLinks.
+	pNodes do: #showAllLinks.
 	self container add: next.
 	next setAsFixed.
+
+
 	next when: RSMouseClick do: [ 
+	"	next translateBy: -100 @ -100.
+		self container exportToSVGCairo.
+		next translateBy: 100 @ 100."
 		self container shapes do: #remove.
 		self addLayer.
 		description := self buildDescription.
@@ -426,11 +432,11 @@ MiNewVisuBuilder >> buildDescription [
 						  yourself);
 				 yourself);
 		add: (MiNVBoxNode new
-				 name: 'Purgatory: ', (sharedGroups at: #other) size asString, ' classes';
+				 name:
+					 'Purgatory: ' , purgatoryDict values size asString , ' classes';
 				 layout: (MiNVFlowLayoutNode new
 						  addAll:
-							  ((self commonPackagesFor: (sharedGroups at: #other)) 
-								   collect: [ :c | 
+							  ((self commonPackagesFor: purgatoryDict values) collect: [ :c | 
 									   MiNVElement new
 										   model: c;
 										   yourself ]);
@@ -677,6 +683,7 @@ MiNewVisuBuilder >> classAlreadyPresent: aClass [
 	clientDicts do: [ :d | d at: aClass ifPresent: [ ^ #client ] ].
 	serverDicts do: [ :d | d at: aClass ifPresent: [ ^ #server ] ].
 	sharedDict at: aClass ifPresent: [ ^ #shared ].
+	purgatoryDict at: aClass ifPresent: [ ^ #purgatory ].
 	^ #free
 ]
 
@@ -1163,7 +1170,7 @@ MiNewVisuBuilder >> initialize [
 	serverNodes := Dictionary new.
 	sharedNodes := OrderedCollection new.
 	sharedDict := Dictionary new.
-
+	purgatoryDict := Dictionary new.
 	clientDicts := OrderedCollection new.
 	serverDicts := OrderedCollection new.
 	scale := NSScale pow
@@ -1186,16 +1193,14 @@ MiNewVisuBuilder >> initializeFirstServerLayer [
 
 	serverDicts add: Dictionary new.
 	(clientDicts at: 1) associationsDo: [ :assoc | 
-		| class hNode newNode |
+		| impl class hNode newNode |
 		class := assoc key.
 		hNode := assoc value.
-		(class implementations collect: [ :i | i implementingClass ])
-			detect: [ :sub | sub isAbstract isNil ]
-			ifFound: [ :e | 
-				newNode := self buildNodeFromEntity: e.
-				newNode dependencyTo: hNode.
-				(serverDicts at: 1) at: e put: newNode ]
-			ifNone: [  ] ]
+		impl := class subclassHierarchy detect: [ :sub | 
+			        sub isInterface not and: [ sub isAbstract isNil ] ].
+		newNode := self buildNodeFromEntity: impl.
+		newNode dependencyTo: hNode.
+		(serverDicts at: 1) at: impl put: newNode ]
 ]
 
 { #category : #partitioning }
@@ -1214,15 +1219,14 @@ MiNewVisuBuilder >> initializePartitioning [
 { #category : #partitioning }
 MiNewVisuBuilder >> initializeSharedWithDTOs [
 
-	| baseModel dtoAbstractClasses |
-	dtoAbstractClasses := { 'EntiteAbstract'. 'EnumerationAbstract' }.
+	| baseModel |
 	baseModel := (((FQStringQuery
 		                property: #name
 		                comparator: #=
-		                valueToCompare: 'EntitePersistanteAbstract') runOn:
+		                valueToCompare: 'BaseModelData') runOn:
 		               self services anyOne rawModel mooseModel allClasses) 
 		              reject: [ :c | c subclassHierarchy isEmpty ]) anyOne.
-	sharedDict at: baseModel put: (self buildNodeFromEntity: baseModel).
+
 	baseModel subclassHierarchy do: [ :c | 
 		sharedDict at: c put: (self buildNodeFromEntity: c) ]
 ]
@@ -1267,7 +1271,7 @@ MiNewVisuBuilder >> moveClass: aClass ToSharedfrom: collectionOfDicts [
 	collectionOfDicts do: [ :d | 
 		(d removeKey: aClass ifAbsent: [ nil ]) ifNotNil: [ :n | 
 			hNode := n.
-			sharedDict at: aClass put: hNode.
+			purgatoryDict at: aClass put: hNode.
 			^ hNode ] ].
 
 	^ nil
