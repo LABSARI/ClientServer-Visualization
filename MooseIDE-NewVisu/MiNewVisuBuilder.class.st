@@ -238,18 +238,19 @@ MiNewVisuBuilder >> build [
 
 	self visit: description.
 
-	next := RSBox new
-		        size: 50;
+	next := RSLabel new
+		        fontSize: 20;
+		        text: 'Add level';
 		        color: (Color fromHexString: '67001F');
 		        yourself.
 	rootNode hideAllLinks.
 	pNodes do: #showAllLinks.
 	self container add: next.
 	next setAsFixed.
+	next translateBy: 55 @ 15.
 
 
-	next when: RSMouseClick do: [ 
-	"	next translateBy: -100 @ -100.
+	next when: RSMouseClick do: [ "	next translateBy: -100 @ -100.
 		self container exportToSVGCairo.
 		next translateBy: 100 @ 100."
 		self container shapes do: #remove.

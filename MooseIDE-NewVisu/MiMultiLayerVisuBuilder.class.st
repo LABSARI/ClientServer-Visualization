@@ -35,6 +35,47 @@ MiMultiLayerVisuBuilder >> addDependenciesToServicesAndTag [
 ]
 
 { #category : #adding }
+MiMultiLayerVisuBuilder >> addLayerToClientFromLevel: level [
+
+	| newDict currentDict hasAddedSomething |
+	hasAddedSomething := false.
+	newDict := Dictionary new.
+	currentDict := clientDicts at: level.
+	currentDict associationsDo: [ :assoc | 
+		| class hNode |
+		class := assoc key.
+		hNode := assoc value.
+		(self classDependenciesFor: class) do: [ :d | 
+			| response |
+			response := self classAlreadyPresent: d.
+			response = #server ifTrue: [ 
+				(self indexOf: d in: serverDicts) > 1 ifTrue: [ 
+					hNode dependencyTo: (self moveClass: d ToSharedfrom: serverDicts) ] ].
+			response = #shared ifTrue: [ "hNode dependencyTo: (sharedDict at: d)"
+				 ] ].
+		(self classDependantsFor: class) do: [ :d | 
+			| response |
+			response := self classAlreadyPresent: d.
+			response = #free ifTrue: [ 
+				| newNode |
+				newNode := self buildNodeFromEntity: d.
+				newNode dependencyTo: hNode.
+				newDict at: d put: newNode.
+				hasAddedSomething := true ].
+			response = #client ifTrue: [ 
+				newDict at: d ifPresent: [ :n | n dependencyTo: hNode ] ].
+			response = #server ifTrue: [ 
+				(self indexOf: d in: serverDicts) > 1 ifTrue: [ 
+					hNode dependencyTo: (self moveClass: d ToSharedfrom: serverDicts) ] ].
+			response = #shared ifTrue: [ "(sharedDict at: d) dependencyTo: hNode"
+				 ] ] ].
+	hasAddedSomething ifTrue: [ 
+		clientDicts add: newDict.
+		^ true ].
+	^ false
+]
+
+{ #category : #adding }
 MiMultiLayerVisuBuilder >> addLayerToServerFromLevel: level [
 
 	| hasAddedSomething newDict currentDict |
@@ -139,7 +180,9 @@ MiMultiLayerVisuBuilder >> buildDescription [
 		               gapSize: 90;
 		               add: description;
 		               add: (MiNVBoxNode new
-				                name: 'Services';
+				                name:
+					                'Services: ' , serviceDict values size asString
+					                , ' classes';
 				                layout: (MiNVFlowLayoutNode new
 						                 addAll:
 							                 ((self commonPackagesFor: serviceDict values) 
@@ -150,7 +193,9 @@ MiMultiLayerVisuBuilder >> buildDescription [
 						                 yourself);
 				                yourself);
 		               add: (MiNVBoxNode new
-				                name: 'DAO';
+				                name:
+					                'DAO: ' , daoDict values size asString
+					                , ' classes';
 				                layout: (MiNVFlowLayoutNode new
 						                 addAll:
 							                 ((self commonPackagesFor: daoDict values) 
@@ -169,11 +214,10 @@ MiMultiLayerVisuBuilder >> buildLayoutsFor: dicts reversed: reverse [
 
 	| layouts |
 	layouts := dicts withIndexCollect: [ :d :i | 
-		           | box layout entities |
+		           | box layout entities filtered |
 		           i = 1
 			           ifTrue: [ 
-				           | filtered |
-				           filtered := (self entitiesWithViolationFrom: d values)
+				           filtered := (self entitiesWithViolationFrom: d)
 					                       asOrderedCollection.
 
 				           layout := MiNVVerticalLayoutNode new.
@@ -185,15 +229,21 @@ MiMultiLayerVisuBuilder >> buildLayoutsFor: dicts reversed: reverse [
 					                  yourself.
 				           entities := filtered sort: [ :a :b | a name < b name ] ]
 			           ifFalse: [ 
+				           filtered := (self entitiesWithViolationFrom: d)
+					                       asOrderedCollection.
 				           layout := MiNVFlowLayoutNode new.
-				           entities := self commonPackagesFor: d values ].
+				           entities := self commonPackagesFor: filtered.
+				           box := MiNVBoxNode new
+					                  name:
+						                  filtered size asString , '/'
+						                  , d values size asString;
+					                  layout: layout;
+					                  yourself ].
 		           layout addAll: (entities collect: [ :c | 
 				            MiNVElement new
 					            model: c;
 					            yourself ]).
-		           i = 1
-			           ifTrue: [ box ]
-			           ifFalse: [ layout ] ].
+		           box ].
 	^ reverse
 		  ifTrue: [ layouts reversed ]
 		  ifFalse: [ layouts ]
@@ -248,10 +298,25 @@ MiMultiLayerVisuBuilder >> colorFor: node [
 ]
 
 { #category : #building }
-MiMultiLayerVisuBuilder >> entitiesWithViolationFrom: aCollectionOfHNodes [
+MiMultiLayerVisuBuilder >> entitiesWithViolationFrom: aDict [
 
-	^ aCollectionOfHNodes select: [ :hn | 
-		  hn rawModel hasTag: implAndIntViolation ]
+	| v |
+	v := OrderedCollection new.
+	daoDict valuesDo: [ :hn | 
+		hn dependencies do: [ :d | 
+			| c |
+			c := d from = hn rawModel
+				     ifTrue: [ d to ]
+				     ifFalse: [ d from ].
+			aDict at: c rawModel ifPresent: [ :n | v add: n ] ] ].
+	purgatoryDict valuesDo: [ :hn | 
+		hn dependencies do: [ :d | 
+			| c |
+			c := d from = hn rawModel
+				     ifTrue: [ d to ]
+				     ifFalse: [ d from ].
+			aDict at: c rawModel ifPresent: [ :n | v add: n ] ] ].
+	^ v asSet
 ]
 
 { #category : #initialization }
