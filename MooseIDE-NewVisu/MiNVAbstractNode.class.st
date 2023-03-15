@@ -1,7 +1,7 @@
 Class {
 	#name : #MiNVAbstractNode,
 	#superclass : #Object,
-	#category : #'MooseIDE-NewVisu'
+	#category : #'MooseIDE-NewVisu-Model'
 }
 
 { #category : #visiting }

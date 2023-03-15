@@ -5,7 +5,7 @@ Class {
 		'layout',
 		'name'
 	],
-	#category : #'MooseIDE-NewVisu'
+	#category : #'MooseIDE-NewVisu-Model'
 }
 
 { #category : #visiting }

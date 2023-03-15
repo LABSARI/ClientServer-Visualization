@@ -3,37 +3,8 @@ Class {
 	#superclass : #HSimpleVisualizationBuilder,
 	#instVars : [
 		'mapModel',
-		'services',
-		'implementations',
-		'clients',
-		'allEntities',
-		'clients2',
-		'serverDCR',
-		'appServiceUID',
-		'serverPackages',
-		'clientPackages',
-		'clientNodes',
-		'serverNodes',
 		'highlightShapes',
-		'scale',
-		'sharedNodes',
 		'sharedDict',
-		'dtoClasses',
-		'currentGroups',
-		'currentChildrenNodes',
-		'allEnums',
-		'allOtherClasses',
-		'serverDCR2',
-		'serverDCR3',
-		'clients3',
-		'clients4',
-		'serverDCR4',
-		'clients5',
-		'serverDCR5',
-		'clients6',
-		'serverDCR6',
-		'clients7',
-		'serverDCR7',
 		'clientDicts',
 		'serverDicts',
 		'spackageDict',
@@ -42,9 +13,10 @@ Class {
 		'continueClient',
 		'continueServer',
 		'index',
-		'order'
+		'order',
+		'description'
 	],
-	#category : #'MooseIDE-NewVisu'
+	#category : #'MooseIDE-NewVisu-Roassal-builder'
 }
 
 { #category : #partitioning }
@@ -52,7 +24,7 @@ MiNewVisuBuilder >> addDependenciesToShared [
 
 	"Add dependencies to shared from last added layers."
 
-	[ sharedDict associationsDo: [ :a | 
+	sharedDict associationsDo: [ :a | 
 		(self classDependantsFor: a key) do: [ :c | 
 			(serverDicts at: index)
 				at: c
@@ -60,8 +32,7 @@ MiNewVisuBuilder >> addDependenciesToShared [
 		(self classDependenciesFor: a key) do: [ :c | 
 			(clientDicts at: index)
 				at: c
-				ifPresent: [ :n | a value dependencyTo: n ] ] ] ] timeToRun
-		traceCr
+				ifPresent: [ :n | a value dependencyTo: n ] ] ]
 ]
 
 { #category : #partitioning }
@@ -119,14 +90,19 @@ MiNewVisuBuilder >> addLayerToClientFromLevel: level [
 { #category : #partitioning }
 MiNewVisuBuilder >> addLayerToServerFromLevel: level [
 
-	| hasAddedSomething newDict currentDict |
-	hasAddedSomething := false.
+	| newDict currentDict |
 	newDict := Dictionary new.
 	currentDict := serverDicts at: level.
+
 	currentDict associationsDo: [ :assoc | 
 		| class hNode |
 		class := assoc key.
 		hNode := assoc value.
+		(self classDependantsFor: class) do: [ :d | 
+			| response |
+			response := self classAlreadyPresent: d.
+			response = #client ifTrue: [  ] ].
+
 		(self classDependenciesFor: class) do: [ :d | 
 			| response |
 			response := self classAlreadyPresent: d.
@@ -134,17 +110,35 @@ MiNewVisuBuilder >> addLayerToServerFromLevel: level [
 				| newNode |
 				newNode := self buildNodeFromEntity: d.
 				hNode dependencyTo: newNode.
-				newDict at: d put: newNode.
-				hasAddedSomething := true ].
+				newDict at: d put: newNode ].
 			response = #client ifTrue: [ 
 				(self indexOf: d in: clientDicts) > 1 ifTrue: [ 
 					hNode dependencyTo: (self moveClass: d ToSharedfrom: clientDicts) ] ].
 			response = #shared ifTrue: [ "hNode dependencyTo: (sharedDict at: d)"
 				 ] ] ].
-	hasAddedSomething ifTrue: [ 
+	newDict ifNotEmpty: [ 
 		serverDicts add: newDict.
 		^ true ].
 	^ false
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> addNextLevelButton [
+
+	| next |
+	next := RSLabel new
+		        fontSize: 20;
+		        text: 'Add level';
+		        color: (Color fromHexString: '67001F');
+		        yourself.
+
+	next translateBy: 55 @ 15.
+	self container add: next.
+	next setAsFixed.
+	next when: RSMouseClick do: [ 
+		self addLayer.
+
+		self updateBuild]
 ]
 
 { #category : #building }
@@ -168,29 +162,13 @@ MiNewVisuBuilder >> boxChildrenColorFor: anHNode [
 { #category : #building }
 MiNewVisuBuilder >> build [
 
-	| description next |
 	self initializePartitioning.
+
 	description := self buildDescription.
 
 	self visit: description.
 
-	next := RSBox new
-		        size: 50;
-		        color: (Color fromHexString: '67001F');
-		        yourself.
-
-	self container add: next.
-	next setAsFixed.
-	next when: RSMouseClick do: [ 
-		self container shapes do: #remove.
-		self addLayer.
-		description := self buildDescription.
-		self visit: description.
-		rootNode hideAllLinks.
-		sharedDict associationsDo: [ :a | 
-			a key class = FamixJavaEnum ifFalse: [ a value showAllLinks ] ].
-		self renderLinesIn: self container.
-		self container signalUpdate ].
+	self addNextLevelButton.
 
 	self renderLinesIn: self container.
 	self container @ self menuInteraction
@@ -297,7 +275,7 @@ MiNewVisuBuilder >> buildDescription [
 				 name: 'Purgatory: ', (sharedGroups at: #other) size asString, ' classes';
 				 layout: (MiNVFlowLayoutNode new
 						  addAll:
-							  ((self commonPackagesFor: (sharedGroups at: #other)) 
+							  ((self commonPackagesFor: (sharedGroups at: #other))
 								   collect: [ :c | 
 									   MiNVElement new
 										   model: c;
@@ -312,21 +290,36 @@ MiNewVisuBuilder >> buildLayoutsFor: dicts reversed: reverse [
 
 	| layouts |
 	layouts := dicts withIndexCollect: [ :d :i | 
-		           | layout entities |
+		           | box layout entities filtered |
 		           i = 1
 			           ifTrue: [ 
+				           filtered := (self entitiesWithViolationFrom: d)
+					                       asOrderedCollection.
+
 				           layout := MiNVVerticalLayoutNode new.
-				           entities := d values asOrderedCollection sort: [ :a :b | 
-					                       a name < b name ] ]
+				           box := MiNVBoxNode new
+					                  name:
+						                  filtered size asString , '/'
+						                  , d values size asString;
+					                  layout: layout;
+					                  yourself.
+				           entities := filtered sort: [ :a :b | a name < b name ] ]
 			           ifFalse: [ 
+				           filtered := (self entitiesWithViolationFrom: d)
+					                       asOrderedCollection.
 				           layout := MiNVFlowLayoutNode new.
-				           entities := self commonPackagesFor: d values ].
-		           layout
-			           addAll: (entities collect: [ :c | 
-						            MiNVElement new
-							            model: c;
-							            yourself ]);
-			           yourself ].
+				           entities := self commonPackagesFor: filtered.
+				           box := MiNVBoxNode new
+					                  name:
+						                  filtered size asString , '/'
+						                  , d values size asString;
+					                  layout: layout;
+					                  yourself ].
+		           layout addAll: (entities collect: [ :c | 
+				            MiNVElement new
+					            model: c;
+					            yourself ]).
+		           box ].
 	^ reverse
 		  ifTrue: [ layouts reversed ]
 		  ifFalse: [ layouts ]
@@ -451,6 +444,12 @@ MiNewVisuBuilder >> elements [
 	^ entities collect: [ :e | self buildNodeFromEntity: e ]
 ]
 
+{ #category : #building }
+MiNewVisuBuilder >> entitiesWithViolationFrom: aDict [
+
+	^ aDict values
+]
+
 { #category : #partitioning }
 MiNewVisuBuilder >> fetchNodeFor: aClass in: dicts [
 
@@ -537,19 +536,10 @@ MiNewVisuBuilder >> initialize [
 		e rawModel mooseName copyReplaceAll: '::' with: '.' ].
 	spackageDict := Dictionary new.
 	cpackageDict := Dictionary new.
-	allEntities := Dictionary new.
-	clientNodes := Dictionary new.
 	pNodes := OrderedCollection new.
-	serverNodes := Dictionary new.
-	sharedNodes := OrderedCollection new.
 	sharedDict := Dictionary new.
 	clientDicts := OrderedCollection new.
 	serverDicts := OrderedCollection new.
-	scale := NSScale pow
-		         domain: #( 1 500 );
-		         range: { 
-				         Color white.
-				         (Color fromHexString: '40004B') }
 ]
 
 { #category : #partitioning }
@@ -615,7 +605,7 @@ MiNewVisuBuilder >> labelFromString: aString [
 				   yourself);
 		  adjustToChildren;
 		  padding: 10 @ 0;
-		  color: self container color;
+		  color: Color transparent;
 		  yourself
 ]
 
@@ -781,13 +771,23 @@ MiNewVisuBuilder >> shapeFor: node [
 	^ shape
 ]
 
+{ #category : #building }
+MiNewVisuBuilder >> updateBuild [
+
+	self container shapes do: #remove.
+	description := self buildDescription.
+	self visit: description.
+	rootNode hideAllLinks.
+	self renderLinesIn: self container.
+	self container signalUpdate
+]
+
 { #category : #visiting }
 MiNewVisuBuilder >> visit: aVisualizationModel [
 
 	| rootShape |
 	shapes := OrderedCollection new.
 	rootNode := HNode new.
-	currentChildrenNodes := OrderedCollection new.
 	rootShape := aVisualizationModel acceptVisitor: self.
 	self container add: rootShape.
 	self container schildren: shapes
@@ -804,8 +804,18 @@ MiNewVisuBuilder >> visitBox: aMiNVBoxNode [
 	shape
 		adjustToChildren;
 		border: self borderForSet;
-		padding: 50.
+		padding: 50;
+		color: (Color fromHexString: '00000010').
 	shape add: label.
+	shape
+		when: RSMouseLeave do: [ :evt | 
+			evt shape
+				color: (Color fromHexString: '00000010');
+				signalUpdate ];
+		when: RSMouseEnter do: [ :evt | 
+		evt shape
+			color: (Color fromHexString: '80CDC150');
+			signalUpdate ].
 	RSLocation new
 		left;
 		top;
@@ -870,7 +880,6 @@ MiNewVisuBuilder >> visitQueryNode: aMiNVQueryNode [
 			         rawModel: i;
 			         name: i asString;
 			         yourself ].
-	currentChildrenNodes addAll: nodes.
 	^ nodes collect: [ :node | self shapeFor: node ] as: RSGroup
 ]
 

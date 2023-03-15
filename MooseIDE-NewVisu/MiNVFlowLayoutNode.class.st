@@ -1,7 +1,7 @@
 Class {
 	#name : #MiNVFlowLayoutNode,
 	#superclass : #MiNVLayoutNode,
-	#category : #'MooseIDE-NewVisu'
+	#category : #'MooseIDE-NewVisu-Model'
 }
 
 { #category : #visiting }

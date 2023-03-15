@@ -4,7 +4,7 @@ Class {
 	#instVars : [
 		'model'
 	],
-	#category : #'MooseIDE-NewVisu'
+	#category : #'MooseIDE-NewVisu-Model'
 }
 
 { #category : #visiting }

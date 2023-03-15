@@ -6,7 +6,7 @@ Class {
 		'query',
 		'gapSize'
 	],
-	#category : #'MooseIDE-NewVisu'
+	#category : #'MooseIDE-NewVisu-Model'
 }
 
 { #category : #initialization }

@@ -5,7 +5,7 @@ Class {
 		'entities',
 		'settings'
 	],
-	#category : #'MooseIDE-NewVisu'
+	#category : #'MooseIDE-NewVisu-Model'
 }
 
 { #category : #accessing }

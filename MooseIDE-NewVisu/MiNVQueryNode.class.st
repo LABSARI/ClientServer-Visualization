@@ -5,7 +5,7 @@ Class {
 		'query',
 		'result'
 	],
-	#category : #'MooseIDE-NewVisu'
+	#category : #'MooseIDE-NewVisu-Model'
 }
 
 { #category : #visiting }
