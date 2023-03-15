@@ -14,7 +14,8 @@ Class {
 		'continueServer',
 		'index',
 		'order',
-		'description'
+		'description',
+		'purgatoryDict'
 	],
 	#category : #'MooseIDE-NewVisu-Roassal-builder'
 }
@@ -202,7 +203,7 @@ MiNewVisuBuilder >> buildCompositeEmptyNodeIn: shape [
 { #category : #building }
 MiNewVisuBuilder >> buildDescription [
 
-	| serverLayouts clientLayouts sharedGroups description |
+	| serverLayouts clientLayouts sharedGroups  |
 	serverLayouts := self buildLayoutsFor: serverDicts reversed: false.
 	clientLayouts := self buildLayoutsFor: clientDicts reversed: true.
 	sharedGroups := sharedDict values groupedBy: [ :n | 
@@ -272,10 +273,10 @@ MiNewVisuBuilder >> buildDescription [
 						  yourself);
 				 yourself);
 		add: (MiNVBoxNode new
-				 name: 'Purgatory: ', (sharedGroups at: #other) size asString, ' classes';
+				 name: 'Purgatory: ', (purgatoryDict values) size asString, ' classes';
 				 layout: (MiNVFlowLayoutNode new
 						  addAll:
-							  ((self commonPackagesFor: (sharedGroups at: #other))
+							  ((self commonPackagesFor: (purgatoryDict values))
 								   collect: [ :c | 
 									   MiNVElement new
 										   model: c;
@@ -345,6 +346,7 @@ MiNewVisuBuilder >> classAlreadyPresent: aClass [
 	clientDicts do: [ :d | d at: aClass ifPresent: [ ^ #client ] ].
 	serverDicts do: [ :d | d at: aClass ifPresent: [ ^ #server ] ].
 	sharedDict at: aClass ifPresent: [ ^ #shared ].
+	purgatoryDict at: aClass ifPresent: [ ^ #purgatory ].
 	^ #free
 ]
 
@@ -540,6 +542,7 @@ MiNewVisuBuilder >> initialize [
 	sharedDict := Dictionary new.
 	clientDicts := OrderedCollection new.
 	serverDicts := OrderedCollection new.
+	purgatoryDict := Dictionary new
 ]
 
 { #category : #partitioning }
@@ -628,7 +631,7 @@ MiNewVisuBuilder >> moveClass: aClass ToSharedfrom: collectionOfDicts [
 	collectionOfDicts do: [ :d | 
 		(d removeKey: aClass ifAbsent: [ nil ]) ifNotNil: [ :n | 
 			hNode := n.
-			sharedDict at: aClass put: hNode.
+			purgatoryDict at: aClass put: hNode.
 			^ hNode ] ].
 
 	^ nil
