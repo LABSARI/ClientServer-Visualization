@@ -1,7 +1,7 @@
 Class {
 	#name : #MiNVHorizontalLayoutNode,
-	#superclass : #MiNVLayoutNode,
-	#category : #'MooseIDE-NewVisu'
+	#superclass : #MiNVAbstractLayoutNode,
+	#category : #'MooseIDE-NewVisu-Model'
 }
 
 { #category : #visiting }

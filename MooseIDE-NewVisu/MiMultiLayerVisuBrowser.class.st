@@ -1,7 +1,7 @@
 Class {
 	#name : #MiMultiLayerVisuBrowser,
 	#superclass : #MiNewVisuBrowser,
-	#category : #'MooseIDE-NewVisu'
+	#category : #'MooseIDE-NewVisu-Browser'
 }
 
 { #category : #'as yet unclassified' }

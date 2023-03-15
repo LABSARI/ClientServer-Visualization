@@ -8,7 +8,7 @@ Class {
 		'serviceTag',
 		'implAndIntViolation'
 	],
-	#category : #'MooseIDE-NewVisu'
+	#category : #'MooseIDE-NewVisu-Builder'
 }
 
 { #category : #initialization }
@@ -20,7 +20,18 @@ MiMultiLayerVisuBuilder >> addDependenciesToDaoAndTag [
 		execute: [ :impl :dao | 
 			dao tagWith: daoTag.
 			impl tagWith: implAndIntViolation.
-			pNodes add: (daoDict at: dao) ]
+			pNodes add: (daoDict at: dao) ].
+
+	daoDict associationsDo: [ :a | 
+		(self classDependenciesFor: a key) do: [ :d | 
+			serviceDict at: d ifPresent: [ :hn | 
+				a value dependencyTo: hn.
+				pNodes add: a value ] ] ].
+	serviceDict associationsDo: [ :a | 
+		(self classDependenciesFor: a key) do: [ :d | 
+			(serverDicts at: 1) at: d ifPresent: [ :hn | 
+				a value dependencyTo: hn.
+				pNodes add: a value ] ] ]
 ]
 
 { #category : #initialization }
@@ -127,7 +138,7 @@ MiMultiLayerVisuBuilder >> buildDescription [
 
 	(description := MiNVVerticalLayoutNode new)
 		gapSize: 90;
-		add: (MiNVBoxNode new
+		"add: (MiNVBoxNode new
 				 name:
 					 'Transverse DTOs: ' , sharedDict values size asString
 					 , ' classes';
@@ -143,16 +154,16 @@ MiMultiLayerVisuBuilder >> buildDescription [
 									   model: c;
 									   yourself ]);
 						  yourself);
-				 yourself);
+				 yourself);"
 		add: (MiNVHorizontalLayoutNode new
 				 gapSize: 90;
-				 add: (MiNVBoxNode new
+				 "add: (MiNVBoxNode new
 						  name: 'Client';
 						  layout: (MiNVHorizontalLayoutNode new
 								   gapSize: 80;
 								   addAll: clientLayouts;
 								   yourself);
-						  yourself);
+						  yourself);"
 				 add: (MiNVBoxNode new
 						  name: 'Server';
 						  layout: (MiNVHorizontalLayoutNode new
@@ -160,7 +171,7 @@ MiMultiLayerVisuBuilder >> buildDescription [
 								   addAll: serverLayouts;
 								   yourself);
 						  yourself);
-				 yourself);
+				 yourself)";
 		add: (MiNVBoxNode new
 				 name:
 					 'Purgatory: ' , purgatoryDict values size asString , ' classes';
@@ -171,7 +182,7 @@ MiMultiLayerVisuBuilder >> buildDescription [
 										   model: c;
 										   yourself ]);
 						  yourself);
-				 yourself).
+				 yourself)".
 	description := MiNVBoxNode new
 		               name: 'UC';
 		               layout: description;
@@ -305,17 +316,14 @@ MiMultiLayerVisuBuilder >> entitiesWithViolationFrom: aDict [
 	daoDict valuesDo: [ :hn | 
 		hn dependencies do: [ :d | 
 			| c |
-			c := d from = hn rawModel
+			c := d from = hn
 				     ifTrue: [ d to ]
 				     ifFalse: [ d from ].
 			aDict at: c rawModel ifPresent: [ :n | v add: n ] ] ].
-	purgatoryDict valuesDo: [ :hn | 
+	serviceDict valuesDo: [ :hn | 
 		hn dependencies do: [ :d | 
-			| c |
-			c := d from = hn rawModel
-				     ifTrue: [ d to ]
-				     ifFalse: [ d from ].
-			aDict at: c rawModel ifPresent: [ :n | v add: n ] ] ].
+			d from = hn ifTrue: [ 
+				aDict at: d to rawModel ifPresent: [ :n | v add: n ] ] ] ].
 	^ v asSet
 ]
 

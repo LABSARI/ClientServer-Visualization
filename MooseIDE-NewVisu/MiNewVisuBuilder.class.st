@@ -45,7 +45,7 @@ Class {
 		'order',
 		'purgatoryDict'
 	],
-	#category : #'MooseIDE-NewVisu'
+	#category : #'MooseIDE-NewVisu-Builder'
 }
 
 { #category : #partitioning }
@@ -1357,6 +1357,7 @@ MiNewVisuBuilder >> renderLinesIn: aCanvas [
 		f := line from model rawModel.
 		t := line to model rawModel.
 		line color: Color red.
+		line width: 2.
 		"((f mooseName includesSubstring: '::client') and: [ 
 			 (t mooseName includesSubstring: '::client') not ]) ifTrue: [ 
 			line

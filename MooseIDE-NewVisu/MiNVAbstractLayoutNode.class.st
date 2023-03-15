@@ -1,46 +1,46 @@
 Class {
-	#name : #MiNVLayoutNode,
+	#name : #MiNVAbstractLayoutNode,
 	#superclass : #MiNVAbstractNode,
 	#instVars : [
 		'children',
 		'query',
 		'gapSize'
 	],
-	#category : #'MooseIDE-NewVisu'
+	#category : #'MooseIDE-NewVisu-Model'
 }
 
 { #category : #initialization }
-MiNVLayoutNode >> add: aNVNode [
+MiNVAbstractLayoutNode >> add: aNVNode [
 
 	children add: aNVNode
 ]
 
 { #category : #initialization }
-MiNVLayoutNode >> addAll: aCollection [
+MiNVAbstractLayoutNode >> addAll: aCollection [
 
 	children addAll: aCollection
 ]
 
 { #category : #initialization }
-MiNVLayoutNode >> children [
+MiNVAbstractLayoutNode >> children [
 
 	^ children
 ]
 
 { #category : #accessing }
-MiNVLayoutNode >> gapSize [
+MiNVAbstractLayoutNode >> gapSize [
 
 	^ gapSize
 ]
 
 { #category : #accessing }
-MiNVLayoutNode >> gapSize: anObject [
+MiNVAbstractLayoutNode >> gapSize: anObject [
 
 	gapSize := anObject
 ]
 
 { #category : #initialization }
-MiNVLayoutNode >> initialize [
+MiNVAbstractLayoutNode >> initialize [
 
 	super initialize.
 	children := OrderedCollection new.
@@ -48,13 +48,13 @@ MiNVLayoutNode >> initialize [
 ]
 
 { #category : #accessing }
-MiNVLayoutNode >> query [
+MiNVAbstractLayoutNode >> query [
 
 	^ query
 ]
 
 { #category : #accessing }
-MiNVLayoutNode >> query: anObject [
+MiNVAbstractLayoutNode >> query: anObject [
 
 	query := anObject
 ]

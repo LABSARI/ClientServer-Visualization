@@ -1,10 +1,13 @@
+"
+I am a node describing a final element, a leaf.
+"
 Class {
 	#name : #MiNVElement,
 	#superclass : #MiNVAbstractNode,
 	#instVars : [
 		'model'
 	],
-	#category : #'MooseIDE-NewVisu'
+	#category : #'MooseIDE-NewVisu-Model'
 }
 
 { #category : #visiting }

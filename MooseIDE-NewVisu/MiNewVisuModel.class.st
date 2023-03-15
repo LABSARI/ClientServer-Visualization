@@ -6,7 +6,7 @@ Class {
 		'settings',
 		'mooseModel'
 	],
-	#category : #'MooseIDE-NewVisu'
+	#category : #'MooseIDE-NewVisu-Model'
 }
 
 { #category : #accessing }

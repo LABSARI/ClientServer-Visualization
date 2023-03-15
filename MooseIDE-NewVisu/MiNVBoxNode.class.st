@@ -1,3 +1,6 @@
+"
+I am a box node. I describe a container with a name and a layout. I contain elements through the layout.
+"
 Class {
 	#name : #MiNVBoxNode,
 	#superclass : #MiNVAbstractNode,
@@ -5,7 +8,7 @@ Class {
 		'layout',
 		'name'
 	],
-	#category : #'MooseIDE-NewVisu'
+	#category : #'MooseIDE-NewVisu-Model'
 }
 
 { #category : #visiting }
