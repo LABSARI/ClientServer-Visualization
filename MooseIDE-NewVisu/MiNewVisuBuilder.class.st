@@ -164,7 +164,7 @@ MiNewVisuBuilder >> boxChildrenColorFor: anHNode [
 MiNewVisuBuilder >> build [
 
 	self initializePartitioning.
-
+	
 	description := self buildDescription.
 
 	self visit: description.
@@ -204,8 +204,10 @@ MiNewVisuBuilder >> buildCompositeEmptyNodeIn: shape [
 MiNewVisuBuilder >> buildDescription [
 
 	| serverLayouts clientLayouts sharedGroups  |
+	"L"
 	serverLayouts := self buildLayoutsFor: serverDicts reversed: false.
 	clientLayouts := self buildLayoutsFor: clientDicts reversed: true.
+	
 	sharedGroups := sharedDict values groupedBy: [ :n | 
 		                (n rawModel superclassHierarchy anySatisfy: [ :sc | 
 			                 sc name = 'BaseModel' or: [ 
@@ -278,6 +280,84 @@ MiNewVisuBuilder >> buildDescription [
 						  addAll:
 							  ((self commonPackagesFor: (purgatoryDict values))
 								   collect: [ :c | 
+									   MiNVElement new
+										   model: c;
+										   yourself ]);
+						  yourself);
+				 yourself).
+	^ description
+]
+
+{ #category : #building }
+MiNewVisuBuilder >> buildFirstDescription [
+
+	| sharedGroups |
+	sharedGroups := Dictionary new.
+	sharedGroups at: #dto put: sharedDict values.
+	sharedGroups at: #enum put: #(  ).
+	(description := MiNVVerticalLayoutNode new)
+		gapSize: 90;
+		add: (MiNVBoxNode new
+				 name: 'Shared';
+				 layout: (MiNVFlowLayoutNode new
+						  gapSize: 80;
+						  add: (MiNVBoxNode new
+								   name:
+									   'DTOs: ' , (sharedGroups at: #dto) size asString
+									   , ' classes';
+								   layout: (MiNVFlowLayoutNode new
+										    gapSize: 80;
+										    add: (MiNVQueryNode new
+												     layout: MiNVFlowLayoutNode;
+												     query: [ mapModel dtos ];
+												     yourself);
+										    yourself);
+								   yourself);
+						  add: (MiNVBoxNode new
+								   name:
+									   'Enums: ' , (sharedGroups at: #enum) size asString
+									   , ' classes';
+								   layout: (MiNVFlowLayoutNode new
+										    gapSize: 80;
+										    addAll:
+											    ((self commonPackagesFor: (sharedGroups at: #enum)) 
+												     collect: [ :c | 
+													     MiNVElement new
+														     model: c;
+														     yourself ]);
+										    yourself);
+								   yourself);
+						  yourself);
+				 yourself);
+		add: (MiNVHorizontalLayoutNode new
+				 gapSize: 90;
+				 add: (MiNVBoxNode new
+						  name: 'Client';
+						  layout: (MiNVHorizontalLayoutNode new
+								   gapSize: 80;
+								   add: (MiNVQueryNode new
+										    layout: MiNVVerticalLayoutNode;
+										    query: [ mapModel interfaces ];
+										    yourself);
+								   yourself);
+						  yourself);
+				 add: (MiNVBoxNode new
+						  name: 'Server';
+						  layout: (MiNVHorizontalLayoutNode new
+								   gapSize: 80;
+								   add: (MiNVQueryNode new
+										    layout: MiNVVerticalLayoutNode;
+										    query: [ mapModel implementations ];
+										    yourself);
+								   yourself);
+						  yourself);
+				 yourself);
+		add: (MiNVBoxNode new
+				 name:
+					 'Purgatory: ' , purgatoryDict values size asString , ' classes';
+				 layout: (MiNVFlowLayoutNode new
+						  addAll:
+							  ((self commonPackagesFor: purgatoryDict values) collect: [ :c | 
 									   MiNVElement new
 										   model: c;
 										   yourself ]);
@@ -548,8 +628,9 @@ MiNewVisuBuilder >> initialize [
 { #category : #partitioning }
 MiNewVisuBuilder >> initializeFirstClientLayer [
 
-	clientDicts add: Dictionary new. "Initialisation of the fist layer of clients"
-	mapModel entities do: [ :e | 
+	"Initialisation of the fist layer of clients"
+	clientDicts add: Dictionary new.
+	mapModel interfaces do: [ :e | 
 		(clientDicts at: 1) at: e put: (self buildNodeFromEntity: e) ]
 ]
 
@@ -557,15 +638,8 @@ MiNewVisuBuilder >> initializeFirstClientLayer [
 MiNewVisuBuilder >> initializeFirstServerLayer [
 
 	serverDicts add: Dictionary new.
-	(clientDicts at: 1) associationsDo: [ :assoc | 
-		| impl class hNode newNode |
-		class := assoc key.
-		hNode := assoc value.
-		impl := class subclassHierarchy detect: [ :sub | 
-			        sub isInterface not and: [ sub isAbstract isNil ] ].
-		newNode := self buildNodeFromEntity: impl.
-		newNode dependencyTo: hNode.
-		(serverDicts at: 1) at: impl put: newNode ]
+	mapModel implementations do: [ :e | 
+		(serverDicts at: 1) at: e put: (self buildNodeFromEntity: e) ]
 ]
 
 { #category : #partitioning }
@@ -585,15 +659,7 @@ MiNewVisuBuilder >> initializePartitioning [
 { #category : #partitioning }
 MiNewVisuBuilder >> initializeSharedWithDTOs [
 
-	| baseModel |
-	baseModel := (((FQStringQuery
-		                property: #name
-		                comparator: #=
-		                valueToCompare: 'BaseModelData') runOn:
-		               self services anyOne rawModel mooseModel allClasses) 
-		              reject: [ :c | c subclassHierarchy isEmpty ]) anyOne.
-
-	baseModel subclassHierarchy do: [ :c | 
+	mapModel dtos do: [ :c |
 		sharedDict at: c put: (self buildNodeFromEntity: c) ]
 ]
 
@@ -622,6 +688,12 @@ MiNewVisuBuilder >> mapModel [
 MiNewVisuBuilder >> mapModel: anObject [
 
 	mapModel := anObject
+]
+
+{ #category : #accessing }
+MiNewVisuBuilder >> mooseModel [
+
+	self mapModel mooseModel
 ]
 
 { #category : #partitioning }
@@ -703,37 +775,16 @@ MiNewVisuBuilder >> renderLinesIn: aCanvas [
 		| f t |
 		line announcer: announcer.
 		f := line from model rawModel.
-		t := line to model rawModel
+		t := line to model rawModel ]
+]
 
-		"((f mooseName includesSubstring: '::client') and: [ 
-			 (t mooseName includesSubstring: '::client') not ]) ifTrue: [ 
-			line
-				width: 3;
-				color: Color magenta ].
-"
-		"	
-	(((self serverPackages collect: #rawModel) includes: f) and: [ (f mooseName includesSubstring: '::client' )
-	and: [( (self clientPackages collect: #rawModel) includes: t) and: [ (t mooseName includesSubstring: '::client') not ] ] ]) ifTrue: [ 	line
-				width: 3;
-				color: Color green muchDarker  ].
-	"
-		"(t isClass and: [ 
-			 f isClass and: [ 
-				 (f queryAllOutgoing intersection: t queryAllIncoming) 
-					 allSatisfy: [ :a | a class = FamixJavaAccess ] ] ]) ifTrue: [ 
-			line
-				width: 3;
-				color: Color red ]"
+{ #category : #visiting }
+MiNewVisuBuilder >> roassalLayout: aMiNVLayout [
 
-		"(f isMooseEntity & t isMooseEntity and: [ 
-			 f isClass & t isClass and: [ 
-				 (f superclassHierarchy anySatisfy: [ :c | 
-					  c name = 'RemoteService' ]) and: [ 
-					 t superclassHierarchy anySatisfy: [ :c | 
-						 c name = 'CAInovelanRemoteServiceServlet' ] ] ] ]) ifTrue: [ 
-			line
-				dashed;
-				color: Color green ]" ]
+	aMiNVLayout = MiNVHorizontalLayoutNode ifTrue: [ ^ RSHorizontalLineLayout ].
+	aMiNVLayout = MiNVVerticalLayoutNode ifTrue: [ ^ RSVerticalLineLayout ].
+	aMiNVLayout = MiNVFlowLayoutNode ifTrue: [ ^ RSFlowLayout ].
+	^ RSFlowLayout
 ]
 
 { #category : #building }
@@ -845,7 +896,7 @@ MiNewVisuBuilder >> visitFlowLayout: aMiNVFlowLayoutNode [
 
 	^ self
 		  visitLayout: aMiNVFlowLayoutNode
-		  withRSLayout: RSFlowLayout new
+		  withRSLayout: (self roassalLayout: aMiNVFlowLayoutNode class) new
 ]
 
 { #category : #visiting }
@@ -853,7 +904,8 @@ MiNewVisuBuilder >> visitHorizontalLayout: aMiNVHorizontalLayoutNode [
 
 	^ self
 		  visitLayout: aMiNVHorizontalLayoutNode
-		  withRSLayout: (RSHorizontalLineLayout new
+		  withRSLayout:
+			  ((self roassalLayout: aMiNVHorizontalLayoutNode class) new
 				   gapSize: aMiNVHorizontalLayoutNode gapSize;
 				   alignMiddle;
 				   yourself)
@@ -867,7 +919,7 @@ MiNewVisuBuilder >> visitLayout: aMiNVLayoutNode withRSLayout: aRoassalLayout [
 	group := RSGroup new.
 
 	aMiNVLayoutNode children do: [ :c | 
-		group add: (c acceptVisitor: self) ].
+		 group add: (c acceptVisitor: self)].
 
 	aRoassalLayout on: group.
 
@@ -877,13 +929,15 @@ MiNewVisuBuilder >> visitLayout: aMiNVLayoutNode withRSLayout: aRoassalLayout [
 { #category : #visiting }
 MiNewVisuBuilder >> visitQueryNode: aMiNVQueryNode [
 
-	| nodes |
+	| nodes group |
 	nodes := aMiNVQueryNode query value collect: [ :i | 
 		         HNode new
 			         rawModel: i;
-			         name: i asString;
+			         name: i name;
 			         yourself ].
-	^ nodes collect: [ :node | self shapeFor: node ] as: RSGroup
+	group := nodes collect: [ :node | self shapeFor: node ] as: RSGroup.
+	(self roassalLayout: aMiNVQueryNode layout) on: group.
+	^ group asShape
 ]
 
 { #category : #visiting }
@@ -891,7 +945,7 @@ MiNewVisuBuilder >> visitVerticalLayout: aMiNVVerticalLayoutNode [
 
 	^ self
 		  visitLayout: aMiNVVerticalLayoutNode
-		  withRSLayout: (RSVerticalLineLayout new
+		  withRSLayout: ((self roassalLayout: aMiNVVerticalLayoutNode class) new
 				   alignCenter;
 				   gapSize: aMiNVVerticalLayoutNode gapSize;
 				   yourself)

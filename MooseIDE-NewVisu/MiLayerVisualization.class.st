@@ -1,5 +1,9 @@
+"
+I am a roassal presenter for the MiLayerVisualizationBrowser.
+I have a canvas and I use a builder (MiLayerVisualizationBuilder).
+"
 Class {
-	#name : #MiNewVisu,
+	#name : #MiLayerVisualization,
 	#superclass : #MiAbstractVisualization,
 	#instVars : [
 		'builder'
@@ -8,20 +12,20 @@ Class {
 }
 
 { #category : #highlighting }
-MiNewVisu >> highlightShapes [
+MiLayerVisualization >> highlightShapes [
 	
 
 	
 ]
 
 { #category : #accessing }
-MiNewVisu >> model [
+MiLayerVisualization >> model [
 
 	^ self owner model
 ]
 
 { #category : #highlighting }
-MiNewVisu >> run [
+MiLayerVisualization >> run [
 
 	super run.
 
