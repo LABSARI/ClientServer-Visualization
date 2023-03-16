@@ -35,7 +35,7 @@ MiLayerVisualizationBrowser class >> newModel [
 { #category : #'world menu' }
 MiLayerVisualizationBrowser class >> title [
 
-	^ 'New Visualization'
+	^ 'Layer visualization'
 ]
 
 { #category : #testing }
