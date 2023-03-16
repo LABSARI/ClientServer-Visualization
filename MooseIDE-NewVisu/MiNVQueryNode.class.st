@@ -3,7 +3,8 @@ Class {
 	#superclass : #MiNVAbstractNode,
 	#instVars : [
 		'query',
-		'result'
+		'result',
+		'layout'
 	],
 	#category : #'MooseIDE-NewVisu-Model'
 }
@@ -12,6 +13,24 @@ Class {
 MiNVQueryNode >> acceptVisitor: aVisitor [
 
 	^ aVisitor visitQueryNode: self
+]
+
+{ #category : #testing }
+MiNVQueryNode >> hasMultipleNodes [
+
+	^ true
+]
+
+{ #category : #accessing }
+MiNVQueryNode >> layout [
+
+	^ layout
+]
+
+{ #category : #accessing }
+MiNVQueryNode >> layout: anObject [
+
+	layout := anObject
 ]
 
 { #category : #accessing }

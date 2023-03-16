@@ -9,3 +9,9 @@ MiNVAbstractNode >> acceptVisitor: aVisitor [
 
 	self subclassResponsibility
 ]
+
+{ #category : #testing }
+MiNVAbstractNode >> hasMultipleNodes [
+
+	^ false
+]
