@@ -5,7 +5,7 @@ Class {
 		'entities',
 		'settings'
 	],
-	#category : #'MooseIDE-NewVisu'
+	#category : #'MooseIDE-NewVisu-Model'
 }
 
 { #category : #accessing }
@@ -32,7 +32,7 @@ MiNewVisuModel >> initializeSettings [
 
 	settings := super initializeSettings.
 	settings	addItem: (MiCheckboxSettingItem new
-		setValue: false ;
+		setValue: true ;
 		label: 'Show client package color.' ;
 		help: '' ;
 		yourself)

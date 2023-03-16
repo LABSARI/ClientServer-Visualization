@@ -4,7 +4,7 @@ Class {
 	#instVars : [
 		'visualization'
 	],
-	#category : #'MooseIDE-NewVisu'
+	#category : #'MooseIDE-NewVisu-Presenters'
 }
 
 { #category : #'world menu' }

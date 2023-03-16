@@ -4,7 +4,7 @@ Class {
 	#instVars : [
 		'builder'
 	],
-	#category : #'MooseIDE-NewVisu'
+	#category : #'MooseIDE-NewVisu-Presenters'
 }
 
 { #category : #highlighting }
@@ -22,7 +22,9 @@ MiNewVisu >> model [
 
 { #category : #highlighting }
 MiNewVisu >> run [
+
 	super run.
+
 	builder := MiNewVisuBuilder new
 		           mapModel: self model;
 		           container: self canvas;
