@@ -15,7 +15,7 @@ Class {
 MiMultiLayerVisuBuilder >> addDependenciesToDaoAndTag [
 
 	self
-		addDependenciesFrom: (serverDicts at: 1)
+		addDependenciesFrom: (mapModel serverLayers at: 1)
 		to: daoDict
 		execute: [ :impl :dao | 
 			dao tagWith: daoTag.
@@ -29,7 +29,7 @@ MiMultiLayerVisuBuilder >> addDependenciesToDaoAndTag [
 				pNodes add: a value ] ] ].
 	serviceDict associationsDo: [ :a | 
 		(self classDependenciesFor: a key) do: [ :d | 
-			(serverDicts at: 1) at: d ifPresent: [ :hn | 
+			(mapModel serverLayers at: 1) at: d ifPresent: [ :hn | 
 				a value dependencyTo: hn.
 				pNodes add: a value ] ] ]
 ]
@@ -39,7 +39,7 @@ MiMultiLayerVisuBuilder >> addDependenciesToServicesAndTag [
 
 
 	self
-		addDependenciesFrom: (serverDicts at: 1)
+		addDependenciesFrom: (mapModel serverLayers at: 1)
 		to: serviceDict
 		execute: [ :impl :service | 
 		(service hasTag: serviceTag) ifFalse: [ service tagWith: serviceTag ] ]
@@ -51,7 +51,7 @@ MiMultiLayerVisuBuilder >> addLayerToClientFromLevel: level [
 	| newDict currentDict hasAddedSomething |
 	hasAddedSomething := false.
 	newDict := Dictionary new.
-	currentDict := clientDicts at: level.
+	currentDict := mapModel clientLayers at: level.
 	currentDict associationsDo: [ :assoc | 
 		| class hNode |
 		class := assoc key.
@@ -60,8 +60,8 @@ MiMultiLayerVisuBuilder >> addLayerToClientFromLevel: level [
 			| response |
 			response := self classAlreadyPresent: d.
 			response = #server ifTrue: [ 
-				(self indexOf: d in: serverDicts) > 1 ifTrue: [ 
-					hNode dependencyTo: (self moveClass: d ToSharedfrom: serverDicts) ] ].
+				(self indexOf: d in: mapModel serverLayers) > 1 ifTrue: [ 
+					hNode dependencyTo: (self moveClass: d toSharedfrom: mapModel serverLayers) ] ].
 			response = #shared ifTrue: [ "hNode dependencyTo: (sharedDict at: d)"
 				 ] ].
 		(self classDependantsFor: class) do: [ :d | 
@@ -76,12 +76,12 @@ MiMultiLayerVisuBuilder >> addLayerToClientFromLevel: level [
 			response = #client ifTrue: [ 
 				newDict at: d ifPresent: [ :n | n dependencyTo: hNode ] ].
 			response = #server ifTrue: [ 
-				(self indexOf: d in: serverDicts) > 1 ifTrue: [ 
-					hNode dependencyTo: (self moveClass: d ToSharedfrom: serverDicts) ] ].
+				(self indexOf: d in: mapModel serverLayers) > 1 ifTrue: [ 
+					hNode dependencyTo: (self moveClass: d toSharedfrom: mapModel serverLayers) ] ].
 			response = #shared ifTrue: [ "(sharedDict at: d) dependencyTo: hNode"
 				 ] ] ].
 	hasAddedSomething ifTrue: [ 
-		clientDicts add: newDict.
+		mapModel clientLayers add: newDict.
 		^ true ].
 	^ false
 ]
@@ -92,7 +92,7 @@ MiMultiLayerVisuBuilder >> addLayerToServerFromLevel: level [
 	| hasAddedSomething newDict currentDict |
 	hasAddedSomething := false.
 	newDict := Dictionary new.
-	currentDict := serverDicts at: level.
+	currentDict := mapModel serverLayers at: level.
 	currentDict associationsDo: [ :assoc | 
 		| class hNode |
 		class := assoc key.
@@ -115,13 +115,13 @@ MiMultiLayerVisuBuilder >> addLayerToServerFromLevel: level [
 				newDict at: d put: newNode.
 				hasAddedSomething := true ].
 			response = #client ifTrue: [ 
-				(self indexOf: d in: clientDicts) > 1 ifTrue: [ 
+				(self indexOf: d in: mapModel clientLayers) > 1 ifTrue: [ 
 					level = 1 ifTrue: [ class tagWith: implAndIntViolation ].
-					hNode dependencyTo: (self moveClass: d ToSharedfrom: clientDicts) ] ].
+					hNode dependencyTo: (self moveClass: d toSharedfrom: mapModel clientLayers) ] ].
 			response = #shared ifTrue: [ "hNode dependencyTo: (sharedDict at: d)"
 				 ] ] ].
 	hasAddedSomething ifTrue: [ 
-		serverDicts add: newDict.
+		mapModel serverLayers add: newDict.
 		^ true ].
 	^ false
 ]
@@ -130,13 +130,13 @@ MiMultiLayerVisuBuilder >> addLayerToServerFromLevel: level [
 MiMultiLayerVisuBuilder >> buildDescription [
 
 	| serverLayouts clientLayouts |
-	serverLayouts := self buildLayoutsFor: serverDicts reversed: false.
-	clientLayouts := self buildLayoutsFor: clientDicts reversed: true.
+	serverLayouts := self buildLayoutsFor: mapModel serverLayers reversed: false.
+	clientLayouts := self buildLayoutsFor: mapModel clientLayers reversed: true.
 
 
 
 
-	(description := MiNVVerticalLayoutNode new)
+	(description := MiLVVerticalLayoutNode new)
 		gapSize: 90;
 		"add: (MiNVBoxNode new
 				 name:
@@ -155,7 +155,7 @@ MiMultiLayerVisuBuilder >> buildDescription [
 									   yourself ]);
 						  yourself);
 				 yourself);"
-		add: (MiNVHorizontalLayoutNode new
+		add: (MiLVHorizontalLayoutNode new
 				 gapSize: 90;
 				 "add: (MiNVBoxNode new
 						  name: 'Client';
@@ -164,9 +164,9 @@ MiMultiLayerVisuBuilder >> buildDescription [
 								   addAll: clientLayouts;
 								   yourself);
 						  yourself);"
-				 add: (MiNVBoxNode new
+				 add: (MiLVAbstractBoxNode new
 						  name: 'Server';
-						  layout: (MiNVHorizontalLayoutNode new
+						  layout: (MiLVHorizontalLayoutNode new
 								   gapSize: 80;
 								   addAll: serverLayouts;
 								   yourself);
@@ -183,35 +183,35 @@ MiMultiLayerVisuBuilder >> buildDescription [
 										   yourself ]);
 						  yourself);
 				 yourself)".
-	description := MiNVBoxNode new
+	description := MiLVAbstractBoxNode new
 		               name: 'UC';
 		               layout: description;
 		               yourself.
-	description := MiNVHorizontalLayoutNode new
+	description := MiLVHorizontalLayoutNode new
 		               gapSize: 90;
 		               add: description;
-		               add: (MiNVBoxNode new
+		               add: (MiLVAbstractBoxNode new
 				                name:
 					                'Services: ' , serviceDict values size asString
 					                , ' classes';
-				                layout: (MiNVFlowLayoutNode new
+				                layout: (MiLVFlowLayoutNode new
 						                 addAll:
 							                 ((self commonPackagesFor: serviceDict values) 
 								                  collect: [ :c | 
-									                  MiNVElement new
+									                  MiLVAbstractElement new
 										                  model: c;
 										                  yourself ]);
 						                 yourself);
 				                yourself);
-		               add: (MiNVBoxNode new
+		               add: (MiLVAbstractBoxNode new
 				                name:
 					                'DAO: ' , daoDict values size asString
 					                , ' classes';
-				                layout: (MiNVFlowLayoutNode new
+				                layout: (MiLVFlowLayoutNode new
 						                 addAll:
 							                 ((self commonPackagesFor: daoDict values) 
 								                  collect: [ :c | 
-									                  MiNVElement new
+									                  MiLVAbstractElement new
 										                  model: c;
 										                  yourself ]);
 						                 yourself);
@@ -231,8 +231,8 @@ MiMultiLayerVisuBuilder >> buildLayoutsFor: dicts reversed: reverse [
 				           filtered := (self entitiesWithViolationFrom: d)
 					                       asOrderedCollection.
 
-				           layout := MiNVVerticalLayoutNode new.
-				           box := MiNVBoxNode new
+				           layout := MiLVVerticalLayoutNode new.
+				           box := MiLVAbstractBoxNode new
 					                  name:
 						                  filtered size asString , '/'
 						                  , d values size asString;
@@ -242,16 +242,16 @@ MiMultiLayerVisuBuilder >> buildLayoutsFor: dicts reversed: reverse [
 			           ifFalse: [ 
 				           filtered := (self entitiesWithViolationFrom: d)
 					                       asOrderedCollection.
-				           layout := MiNVFlowLayoutNode new.
+				           layout := MiLVFlowLayoutNode new.
 				           entities := self commonPackagesFor: filtered.
-				           box := MiNVBoxNode new
+				           box := MiLVAbstractBoxNode new
 					                  name:
 						                  filtered size asString , '/'
 						                  , d values size asString;
 					                  layout: layout;
 					                  yourself ].
 		           layout addAll: (entities collect: [ :c | 
-				            MiNVElement new
+				            MiLVAbstractElement new
 					            model: c;
 					            yourself ]).
 		           box ].
@@ -288,11 +288,11 @@ MiMultiLayerVisuBuilder >> colorFor: node [
 		^ serviceTag color ].
 
 	(entity isType and: [ 
-		 (sharedDict includesKey: entity) and: [ self nodeIsShared: node ] ]) 
+		 (mapModel sharedLayer includesKey: entity) and: [ self nodeIsShared: node ] ]) 
 		ifTrue: [ ^ Color fromHexString: '9970AB' ].
 
 	(entity isPackage and: [ 
-		 (sharedDict includesKey: node children anyOne rawModel) and: [ 
+		 (mapModel sharedLayer includesKey: node children anyOne rawModel) and: [ 
 			 node children anySatisfy: [ :child | self nodeIsShared: child ] ] ]) 
 		ifTrue: [ ^ Color fromHexString: '9970AB' ].
 
@@ -367,7 +367,7 @@ MiMultiLayerVisuBuilder >> initialize [
 MiMultiLayerVisuBuilder >> initializeFirstServerLayer [
 
 	| remoteServer |
-	serverDicts add: Dictionary new.
+	mapModel serverLayers add: Dictionary new.
 	remoteServer := ((FQStringQuery
 		                  property: #name
 		                  comparator: #=
@@ -375,7 +375,7 @@ MiMultiLayerVisuBuilder >> initializeFirstServerLayer [
 		                 self services anyOne rawModel mooseModel allClasses)
 		                anyOne.
 	remoteServer subclassHierarchy do: [ :sc | 
-		(serverDicts at: 1) at: sc put: (self buildNodeFromEntity: sc) ]
+		(mapModel serverLayers at: 1) at: sc put: (self buildNodeFromEntity: sc) ]
 ]
 
 { #category : #adding }
@@ -415,9 +415,9 @@ MiMultiLayerVisuBuilder >> initializeSharedWithDTOs [
 			                valueToCompare: dto) runOn:
 			               self services anyOne rawModel mooseModel allClasses) 
 			              reject: [ :c | c subclassHierarchy isEmpty ]) anyOne.
-		sharedDict at: baseModel put: (self buildNodeFromEntity: baseModel).
+		mapModel sharedLayer at: baseModel put: (self buildNodeFromEntity: baseModel).
 		baseModel subclassHierarchy do: [ :c | 
-			sharedDict at: c put: (self buildNodeFromEntity: c) ] ]
+			mapModel sharedLayer at: c put: (self buildNodeFromEntity: c) ] ]
 ]
 
 { #category : #adding }

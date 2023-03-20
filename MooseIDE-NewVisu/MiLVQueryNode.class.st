@@ -1,6 +1,6 @@
 Class {
-	#name : #MiNVQueryNode,
-	#superclass : #MiNVAbstractNode,
+	#name : #MiLVQueryNode,
+	#superclass : #MiLVAbstractNode,
 	#instVars : [
 		'query',
 		'result',
@@ -10,49 +10,49 @@ Class {
 }
 
 { #category : #visiting }
-MiNVQueryNode >> acceptVisitor: aVisitor [
+MiLVQueryNode >> acceptVisitor: aVisitor [
 
 	^ aVisitor visitQueryNode: self
 ]
 
 { #category : #testing }
-MiNVQueryNode >> hasMultipleNodes [
+MiLVQueryNode >> hasMultipleNodes [
 
 	^ true
 ]
 
 { #category : #accessing }
-MiNVQueryNode >> layout [
+MiLVQueryNode >> layout [
 
 	^ layout
 ]
 
 { #category : #accessing }
-MiNVQueryNode >> layout: anObject [
+MiLVQueryNode >> layout: anObject [
 
 	layout := anObject
 ]
 
 { #category : #accessing }
-MiNVQueryNode >> query [
+MiLVQueryNode >> query [
 
 	^ query
 ]
 
 { #category : #accessing }
-MiNVQueryNode >> query: anObject [
+MiLVQueryNode >> query: anObject [
 
 	query := anObject
 ]
 
 { #category : #accessing }
-MiNVQueryNode >> result [
+MiLVQueryNode >> result [
 
 	^ result
 ]
 
 { #category : #accessing }
-MiNVQueryNode >> result: anObject [
+MiLVQueryNode >> result: anObject [
 
 	result := anObject
 ]

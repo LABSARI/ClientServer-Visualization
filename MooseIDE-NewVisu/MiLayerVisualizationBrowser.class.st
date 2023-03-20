@@ -54,7 +54,7 @@ MiLayerVisualizationBrowser >> initializeLayout [
 { #category : #initialization }
 MiLayerVisualizationBrowser >> initializePresenters [
 
-	visualization := self instantiate: MiLayerVisualization on: model.
+	visualization := self instantiate: MiLayerVisualization.
 	self initializeLayout
 ]
 
@@ -74,7 +74,12 @@ MiLayerVisualizationBrowser >> miSelectedItem [
 { #category : #actions }
 MiLayerVisualizationBrowser >> runVisualization [
 
-	visualization run
+	| builder |
+	builder := MiNewVisuBuilder new
+		           mapModel: self model;
+		           container: visualization canvas;
+		           yourself.
+	builder build
 ]
 
 { #category : #testing }

@@ -4,124 +4,16 @@ Class {
 	#instVars : [
 		'mapModel',
 		'highlightShapes',
-		'sharedDict',
-		'clientDicts',
-		'serverDicts',
 		'spackageDict',
 		'cpackageDict',
 		'pNodes',
 		'continueClient',
 		'continueServer',
 		'index',
-		'order',
-		'description',
-		'purgatoryDict'
+		'description'
 	],
 	#category : #'MooseIDE-NewVisu-Roassal-builder'
 }
-
-{ #category : #partitioning }
-MiNewVisuBuilder >> addDependenciesToShared [
-
-	"Add dependencies to shared from last added layers."
-
-	sharedDict associationsDo: [ :a | 
-		(self classDependantsFor: a key) do: [ :c | 
-			(serverDicts at: index)
-				at: c
-				ifPresent: [ :n | n dependencyTo: a value ] ].
-		(self classDependenciesFor: a key) do: [ :c | 
-			(clientDicts at: index)
-				at: c
-				ifPresent: [ :n | a value dependencyTo: n ] ] ]
-]
-
-{ #category : #partitioning }
-MiNewVisuBuilder >> addLayer [
-
-	continueClient ifTrue: [ 
-		continueClient := self addLayerToClientFromLevel: index ].
-	continueServer ifTrue: [ 
-		continueServer := self addLayerToServerFromLevel: index ].
-	index := index + 1.
-	self addDependenciesToShared
-]
-
-{ #category : #partitioning }
-MiNewVisuBuilder >> addLayerToClientFromLevel: level [
-
-	| newDict currentDict hasAddedSomething |
-	hasAddedSomething := false.
-	newDict := Dictionary new.
-	currentDict := clientDicts at: level.
-	currentDict associationsDo: [ :assoc | 
-		| class hNode |
-		class := assoc key.
-		hNode := assoc value.
-		(self classDependenciesFor: class) do: [ :d | 
-			| response |
-			response := self classAlreadyPresent: d.
-			response = #server ifTrue: [ 
-				(self indexOf: d in: serverDicts) > 1 ifTrue: [ 
-					hNode dependencyTo: (self moveClass: d ToSharedfrom: serverDicts) ] ].
-			response = #shared ifTrue: [ "hNode dependencyTo: (sharedDict at: d)"
-				 ] ].
-		(self classDependantsFor: class) do: [ :d | 
-			| response |
-			response := self classAlreadyPresent: d.
-			response = #free ifTrue: [ 
-				| newNode |
-				newNode := self buildNodeFromEntity: d.
-				newNode dependencyTo: hNode.
-				newDict at: d put: newNode.
-				hasAddedSomething := true ].
-			response = #client ifTrue: [ 
-				newDict at: d ifPresent: [ :n | n dependencyTo: hNode ] ].
-			response = #server ifTrue: [ 
-				(self indexOf: d in: serverDicts) > 1 ifTrue: [ 
-					hNode dependencyTo: (self moveClass: d ToSharedfrom: serverDicts) ] ].
-			response = #shared ifTrue: [ "(sharedDict at: d) dependencyTo: hNode"
-				 ] ] ].
-	hasAddedSomething ifTrue: [ 
-		clientDicts add: newDict.
-		^ true ].
-	^ false
-]
-
-{ #category : #partitioning }
-MiNewVisuBuilder >> addLayerToServerFromLevel: level [
-
-	| newDict currentDict |
-	newDict := Dictionary new.
-	currentDict := serverDicts at: level.
-
-	currentDict associationsDo: [ :assoc | 
-		| class hNode |
-		class := assoc key.
-		hNode := assoc value.
-		(self classDependantsFor: class) do: [ :d | 
-			| response |
-			response := self classAlreadyPresent: d.
-			response = #client ifTrue: [  ] ].
-
-		(self classDependenciesFor: class) do: [ :d | 
-			| response |
-			response := self classAlreadyPresent: d.
-			response = #free ifTrue: [ 
-				| newNode |
-				newNode := self buildNodeFromEntity: d.
-				hNode dependencyTo: newNode.
-				newDict at: d put: newNode ].
-			response = #client ifTrue: [ 
-				(self indexOf: d in: clientDicts) > 1 ifTrue: [ 
-					hNode dependencyTo: (self moveClass: d ToSharedfrom: clientDicts) ] ].
-			response = #shared ifTrue: [ "hNode dependencyTo: (sharedDict at: d)"
-				 ] ] ].
-	newDict ifNotEmpty: [ 
-		serverDicts add: newDict.
-		^ true ].
-	^ false
-]
 
 { #category : #building }
 MiNewVisuBuilder >> addNextLevelButton [
@@ -137,7 +29,7 @@ MiNewVisuBuilder >> addNextLevelButton [
 	self container add: next.
 	next setAsFixed.
 	next when: RSMouseClick do: [ 
-		self addLayer.
+		mapModel addLayer.
 
 		self updateBuild]
 ]
@@ -163,9 +55,9 @@ MiNewVisuBuilder >> boxChildrenColorFor: anHNode [
 { #category : #building }
 MiNewVisuBuilder >> build [
 
-	self initializePartitioning.
+	mapModel initializePartitioning.
 	
-	description := self buildDescription.
+	description := mapModel buildFirstDescription.
 
 	self visit: description.
 
@@ -205,10 +97,10 @@ MiNewVisuBuilder >> buildDescription [
 
 	| serverLayouts clientLayouts sharedGroups  |
 	"L"
-	serverLayouts := self buildLayoutsFor: serverDicts reversed: false.
-	clientLayouts := self buildLayoutsFor: clientDicts reversed: true.
+	serverLayouts := self buildLayoutsFor: mapModel serverLayers reversed: false.
+	clientLayouts := self buildLayoutsFor: mapModel clientLayers reversed: true.
 	
-	sharedGroups := sharedDict values groupedBy: [ :n | 
+	sharedGroups := mapModel sharedLayer values groupedBy: [ :n | 
 		                (n rawModel superclassHierarchy anySatisfy: [ :sc | 
 			                 sc name = 'BaseModel' or: [ 
 				                 sc name = 'BaseModelData' ] ])
@@ -221,144 +113,66 @@ MiNewVisuBuilder >> buildDescription [
 	sharedGroups at: #other ifAbsentPut: [ OrderedCollection new ].
 	sharedGroups at: #dto ifAbsentPut: [ OrderedCollection new ].
 
-	(description := MiNVVerticalLayoutNode new)
+	(description := MiLVVerticalLayoutNode new)
 		gapSize: 90;
-		add: (MiNVBoxNode new
+		add: (MiLVAbstractBoxNode new
 				 name: 'Shared';
-				 layout: (MiNVFlowLayoutNode new
+				 layout: (MiLVFlowLayoutNode new
 						  gapSize: 80;
-						  add: (MiNVBoxNode new
+						  add: (MiLVAbstractBoxNode new
 								   name:
 									   'DTOs: ' , (sharedGroups at: #dto) size asString
 									   , ' classes';
-								   layout: (MiNVFlowLayoutNode new
+								   layout: (MiLVFlowLayoutNode new
 										    gapSize: 80;
 										    addAll:
 											    ((self commonPackagesFor: (sharedGroups at: #dto)) 
 												     collect: [ :c | 
-													     MiNVElement new
+													     MiLVAbstractElement new
 														     model: c;
 														     yourself ]);
 										    yourself);
 								   yourself);
-						  add: (MiNVBoxNode new
+						  add: (MiLVAbstractBoxNode new
 								   name:
 									   'Enums: ' , (sharedGroups at: #enum) size asString
 									   , ' classes';
-								   layout: (MiNVFlowLayoutNode new
+								   layout: (MiLVFlowLayoutNode new
 										    gapSize: 80;
 										    addAll:
 											    ((self commonPackagesFor: (sharedGroups at: #enum)) 
 												     collect: [ :c | 
-													     MiNVElement new
+													     MiLVAbstractElement new
 														     model: c;
 														     yourself ]);
 										    yourself);
 								   yourself);
 						  yourself);
 				 yourself);
-		add: (MiNVHorizontalLayoutNode new
+		add: (MiLVHorizontalLayoutNode new
 				 gapSize: 90;
-				 add: (MiNVBoxNode new
+				 add: (MiLVAbstractBoxNode new
 						  name: 'Client';
-						  layout: (MiNVHorizontalLayoutNode new
+						  layout: (MiLVHorizontalLayoutNode new
 								   gapSize: 80;
 								   addAll: clientLayouts;
 								   yourself);
 						  yourself);
-				 add: (MiNVBoxNode new
+				 add: (MiLVAbstractBoxNode new
 						  name: 'Server';
-						  layout: (MiNVHorizontalLayoutNode new
+						  layout: (MiLVHorizontalLayoutNode new
 								   gapSize: 80;
 								   addAll: serverLayouts;
 								   yourself);
 						  yourself);
 				 yourself);
-		add: (MiNVBoxNode new
-				 name: 'Purgatory: ', (purgatoryDict values) size asString, ' classes';
-				 layout: (MiNVFlowLayoutNode new
+		add: (MiLVAbstractBoxNode new
+				 name: 'Purgatory: ', (mapModel purgatoryLayer values) size asString, ' classes';
+				 layout: (MiLVFlowLayoutNode new
 						  addAll:
-							  ((self commonPackagesFor: (purgatoryDict values))
+							  ((self commonPackagesFor: (mapModel purgatoryLayer values))
 								   collect: [ :c | 
-									   MiNVElement new
-										   model: c;
-										   yourself ]);
-						  yourself);
-				 yourself).
-	^ description
-]
-
-{ #category : #building }
-MiNewVisuBuilder >> buildFirstDescription [
-
-	| sharedGroups |
-	sharedGroups := Dictionary new.
-	sharedGroups at: #dto put: sharedDict values.
-	sharedGroups at: #enum put: #(  ).
-	(description := MiNVVerticalLayoutNode new)
-		gapSize: 90;
-		add: (MiNVBoxNode new
-				 name: 'Shared';
-				 layout: (MiNVFlowLayoutNode new
-						  gapSize: 80;
-						  add: (MiNVBoxNode new
-								   name:
-									   'DTOs: ' , (sharedGroups at: #dto) size asString
-									   , ' classes';
-								   layout: (MiNVFlowLayoutNode new
-										    gapSize: 80;
-										    add: (MiNVQueryNode new
-												     layout: MiNVFlowLayoutNode;
-												     query: [ mapModel dtos ];
-												     yourself);
-										    yourself);
-								   yourself);
-						  add: (MiNVBoxNode new
-								   name:
-									   'Enums: ' , (sharedGroups at: #enum) size asString
-									   , ' classes';
-								   layout: (MiNVFlowLayoutNode new
-										    gapSize: 80;
-										    addAll:
-											    ((self commonPackagesFor: (sharedGroups at: #enum)) 
-												     collect: [ :c | 
-													     MiNVElement new
-														     model: c;
-														     yourself ]);
-										    yourself);
-								   yourself);
-						  yourself);
-				 yourself);
-		add: (MiNVHorizontalLayoutNode new
-				 gapSize: 90;
-				 add: (MiNVBoxNode new
-						  name: 'Client';
-						  layout: (MiNVHorizontalLayoutNode new
-								   gapSize: 80;
-								   add: (MiNVQueryNode new
-										    layout: MiNVVerticalLayoutNode;
-										    query: [ mapModel interfaces ];
-										    yourself);
-								   yourself);
-						  yourself);
-				 add: (MiNVBoxNode new
-						  name: 'Server';
-						  layout: (MiNVHorizontalLayoutNode new
-								   gapSize: 80;
-								   add: (MiNVQueryNode new
-										    layout: MiNVVerticalLayoutNode;
-										    query: [ mapModel implementations ];
-										    yourself);
-								   yourself);
-						  yourself);
-				 yourself);
-		add: (MiNVBoxNode new
-				 name:
-					 'Purgatory: ' , purgatoryDict values size asString , ' classes';
-				 layout: (MiNVFlowLayoutNode new
-						  addAll:
-							  ((self commonPackagesFor: purgatoryDict values) collect: [ :c | 
-									   MiNVElement new
+									   MiLVAbstractElement new
 										   model: c;
 										   yourself ]);
 						  yourself);
@@ -377,8 +191,8 @@ MiNewVisuBuilder >> buildLayoutsFor: dicts reversed: reverse [
 				           filtered := (self entitiesWithViolationFrom: d)
 					                       asOrderedCollection.
 
-				           layout := MiNVVerticalLayoutNode new.
-				           box := MiNVBoxNode new
+				           layout := MiLVVerticalLayoutNode new.
+				           box := MiLVAbstractBoxNode new
 					                  name:
 						                  filtered size asString , '/'
 						                  , d values size asString;
@@ -388,16 +202,16 @@ MiNewVisuBuilder >> buildLayoutsFor: dicts reversed: reverse [
 			           ifFalse: [ 
 				           filtered := (self entitiesWithViolationFrom: d)
 					                       asOrderedCollection.
-				           layout := MiNVFlowLayoutNode new.
+				           layout := MiLVFlowLayoutNode new.
 				           entities := self commonPackagesFor: filtered.
-				           box := MiNVBoxNode new
+				           box := MiLVAbstractBoxNode new
 					                  name:
 						                  filtered size asString , '/'
 						                  , d values size asString;
 					                  layout: layout;
 					                  yourself ].
 		           layout addAll: (entities collect: [ :c | 
-				            MiNVElement new
+				            MiLVAbstractElement new
 					            model: c;
 					            yourself ]).
 		           box ].
@@ -420,34 +234,6 @@ MiNewVisuBuilder >> buildNodeFromEntity: anEntity [
 	^ node
 ]
 
-{ #category : #partitioning }
-MiNewVisuBuilder >> classAlreadyPresent: aClass [
-
-	clientDicts do: [ :d | d at: aClass ifPresent: [ ^ #client ] ].
-	serverDicts do: [ :d | d at: aClass ifPresent: [ ^ #server ] ].
-	sharedDict at: aClass ifPresent: [ ^ #shared ].
-	purgatoryDict at: aClass ifPresent: [ ^ #purgatory ].
-	^ #free
-]
-
-{ #category : #partitioning }
-MiNewVisuBuilder >> classDependantsFor: aClass [
-
-	^ ((aClass queryAllIncoming withoutSelfLoops reject: [ :a | 
-		    (a target isCollection
-			     ifTrue: [ a target first ]
-			     ifFalse: [ a target ]) isStub ]) collect: [ :e | 
-		   self rootClass: e source ]) asSet
-]
-
-{ #category : #partitioning }
-MiNewVisuBuilder >> classDependenciesFor: aClass [
-
-	^ (aClass allProviders
-		  reject: [ :c | c isStub ]
-		  thenCollect: [ :e | self rootClass: e ]) asSet
-]
-
 { #category : #building }
 MiNewVisuBuilder >> colorFor: node [
 
@@ -456,11 +242,13 @@ MiNewVisuBuilder >> colorFor: node [
 	entity := node rawModel.
 
 	(entity isType and: [ 
-		 (sharedDict includesKey: entity) and: [ self nodeIsShared: node ] ]) 
-		ifTrue: [ ^ Color fromHexString: '9970AB' ].
+		 (mapModel sharedLayer includes: entity) and: [ 
+			 self nodeIsShared: node ] ]) ifTrue: [ 
+		^ Color fromHexString: '9970AB' ].
 
 	(entity isPackage and: [ 
-		 (sharedDict includesKey: node children anyOne rawModel) and: [ 
+		 (mapModel sharedLayer includes: node children anyOne rawModel) 
+			 and: [ 
 			 node children anySatisfy: [ :child | self nodeIsShared: child ] ] ]) 
 		ifTrue: [ ^ Color fromHexString: '9970AB' ].
 
@@ -480,6 +268,7 @@ MiNewVisuBuilder >> colorFor: node [
 MiNewVisuBuilder >> commonPackagesFor: classes [
 
 	| groups dict r |
+	self flag: 'to modify'.
 	classes ifEmpty: [ ^ OrderedCollection new ].
 	r := self classAlreadyPresent: classes anyOne rawModel.
 	r = #client ifTrue: [ dict := cpackageDict ].
@@ -495,24 +284,23 @@ MiNewVisuBuilder >> commonPackagesFor: classes [
 			   yourself ]) sorted: [ :a :b | a name < b name ]
 ]
 
-{ #category : #partitioning }
-MiNewVisuBuilder >> computePartitioning [
+{ #category : #visiting }
+MiNewVisuBuilder >> createHNodeFor: anLVElement [
 
-	
-	self initializeFirstClientLayer.
-	self initializeFirstServerLayer.
-	self initializeSharedWithDTOs.
+	^ HNode new
+		  name: anLVElement name;
+		  rawModel: anLVElement model;
+		  collapse;
+		  yourself
+]
 
-	continueClient := true.
-	continueServer := true.
-	index := 1.
+{ #category : #visiting }
+MiNewVisuBuilder >> createHNodeForPackage: aPackageElement [
 
-
-	continueServer ifTrue: [ 
-		continueServer := self addLayerToServerFromLevel: index ].
-	continueClient ifTrue: [ 
-		continueClient := self addLayerToClientFromLevel: index ].
-	index := index + 1
+	^ (self createHNodeFor: aPackageElement)
+		  children:
+			  (aPackageElement children collect: [ :c | self createHNodeFor: c ]);
+		  yourself
 ]
 
 { #category : #accessing }
@@ -530,13 +318,6 @@ MiNewVisuBuilder >> elements [
 MiNewVisuBuilder >> entitiesWithViolationFrom: aDict [
 
 	^ aDict values
-]
-
-{ #category : #partitioning }
-MiNewVisuBuilder >> fetchNodeFor: aClass in: dicts [
-
-	dicts do: [ :d | d at: aClass ifPresent: [ :n | ^ n ] ].
-	^ nil
 ]
 
 { #category : #building }
@@ -602,13 +383,6 @@ MiNewVisuBuilder >> highlightableLinkedShapes [
 			                     yourself ]
 ]
 
-{ #category : #partitioning }
-MiNewVisuBuilder >> indexOf: aClass in: dicts [
-
-	dicts withIndexDo: [ :d :i | d at: aClass ifPresent: [ ^ i ] ].
-	^ -1
-]
-
 { #category : #initialization }
 MiNewVisuBuilder >> initialize [
 
@@ -618,49 +392,7 @@ MiNewVisuBuilder >> initialize [
 		e rawModel mooseName copyReplaceAll: '::' with: '.' ].
 	spackageDict := Dictionary new.
 	cpackageDict := Dictionary new.
-	pNodes := OrderedCollection new.
-	sharedDict := Dictionary new.
-	clientDicts := OrderedCollection new.
-	serverDicts := OrderedCollection new.
-	purgatoryDict := Dictionary new
-]
-
-{ #category : #partitioning }
-MiNewVisuBuilder >> initializeFirstClientLayer [
-
-	"Initialisation of the fist layer of clients"
-	clientDicts add: Dictionary new.
-	mapModel interfaces do: [ :e | 
-		(clientDicts at: 1) at: e put: (self buildNodeFromEntity: e) ]
-]
-
-{ #category : #partitioning }
-MiNewVisuBuilder >> initializeFirstServerLayer [
-
-	serverDicts add: Dictionary new.
-	mapModel implementations do: [ :e | 
-		(serverDicts at: 1) at: e put: (self buildNodeFromEntity: e) ]
-]
-
-{ #category : #partitioning }
-MiNewVisuBuilder >> initializePartitioning [
-
-	
-	self initializeFirstClientLayer.
-	self initializeFirstServerLayer.
-	self initializeSharedWithDTOs.
-
-	continueClient := true.
-	continueServer := true.
-	index := 1.
-	order := 1
-]
-
-{ #category : #partitioning }
-MiNewVisuBuilder >> initializeSharedWithDTOs [
-
-	mapModel dtos do: [ :c |
-		sharedDict at: c put: (self buildNodeFromEntity: c) ]
+	pNodes := OrderedCollection new
 ]
 
 { #category : #building }
@@ -696,19 +428,6 @@ MiNewVisuBuilder >> mooseModel [
 	self mapModel mooseModel
 ]
 
-{ #category : #partitioning }
-MiNewVisuBuilder >> moveClass: aClass ToSharedfrom: collectionOfDicts [
-
-	| hNode |
-	collectionOfDicts do: [ :d | 
-		(d removeKey: aClass ifAbsent: [ nil ]) ifNotNil: [ :n | 
-			hNode := n.
-			purgatoryDict at: aClass put: hNode.
-			^ hNode ] ].
-
-	^ nil
-]
-
 { #category : #building }
 MiNewVisuBuilder >> nodeAnnouncer [
 
@@ -736,6 +455,7 @@ MiNewVisuBuilder >> nodeAnnouncer [
 MiNewVisuBuilder >> nodeIsShared: node [
 
 	| c s |
+	self flag: 'to modify'.
 	c := false.
 	s := false.
 	node dependencies ifEmpty: [ ^ false ].
@@ -779,27 +499,33 @@ MiNewVisuBuilder >> renderLinesIn: aCanvas [
 ]
 
 { #category : #visiting }
-MiNewVisuBuilder >> roassalLayout: aMiNVLayout [
+MiNewVisuBuilder >> roassalBorderFor: aSymbol [
 
-	aMiNVLayout = MiNVHorizontalLayoutNode ifTrue: [ ^ RSHorizontalLineLayout ].
-	aMiNVLayout = MiNVVerticalLayoutNode ifTrue: [ ^ RSVerticalLineLayout ].
-	aMiNVLayout = MiNVFlowLayoutNode ifTrue: [ ^ RSFlowLayout ].
-	^ RSFlowLayout
+	aSymbol = #dashed ifTrue: [ ^ self borderForSet ].
+	aSymbol = #line ifTrue: [ ^ self shouldBeImplemented ].
+	aSymbol = #without ifTrue: [ ^ nil ]
 ]
 
-{ #category : #building }
-MiNewVisuBuilder >> rootClass: anEntity [
+{ #category : #visiting }
+MiNewVisuBuilder >> rsShapeFor: childrenNodes withRSLayout: aRoassalLayout [
 
-	^ (anEntity atScopeWithProperty: [ :c | 
-		   c isType and: [ c isAnonymousClass not ] ]) anyOne
+	| group layoutChildrenNodes |
+	layoutChildrenNodes := OrderedCollection new.
+	group := RSGroup new.
+
+	childrenNodes do: [ :c | group add: (c acceptVisitor: self) ].
+
+	aRoassalLayout on: group.
+
+	^ group asShape
 ]
 
 { #category : #building }
 MiNewVisuBuilder >> services [
 
-	clientDicts ifEmpty: [ 
-		clientDicts add: (Dictionary sizeFor: self elements size) ].
-	^ clientDicts at: 1
+	mapModel clientLayers ifEmpty: [ 
+		mapModel clientLayers add: (Dictionary sizeFor: self elements size) ].
+	^ mapModel clientLayers at: 1
 ]
 
 { #category : #building }
@@ -848,28 +574,23 @@ MiNewVisuBuilder >> visit: aVisualizationModel [
 ]
 
 { #category : #visiting }
-MiNewVisuBuilder >> visitBox: aMiNVBoxNode [
+MiNewVisuBuilder >> visitBox: aMiNVBoxNode withRSLayout: aRoassalLayout [
 
 	| shape label |
 	label := self labelFromString: aMiNVBoxNode name.
 
 	shape := RSComposite new.
-	shape add: (aMiNVBoxNode layout acceptVisitor: self).
+
+	shape add:
+		(self rsShapeFor: aMiNVBoxNode children withRSLayout: aRoassalLayout).
+
 	shape
 		adjustToChildren;
-		border: self borderForSet;
+		border: (self roassalBorderFor: aMiNVBoxNode borderStyle);
 		padding: 50;
-		color: (Color fromHexString: '00000010').
+		color: aMiNVBoxNode backgroundColor.
 	shape add: label.
-	shape
-		when: RSMouseLeave do: [ :evt | 
-			evt shape
-				color: (Color fromHexString: '00000010');
-				signalUpdate ];
-		when: RSMouseEnter do: [ :evt | 
-		evt shape
-			color: (Color fromHexString: '80CDC150');
-			signalUpdate ].
+
 	RSLocation new
 		left;
 		top;
@@ -879,51 +600,28 @@ MiNewVisuBuilder >> visitBox: aMiNVBoxNode [
 ]
 
 { #category : #visiting }
-MiNewVisuBuilder >> visitElement: aMiNVElement [
+MiNewVisuBuilder >> visitFlowBox: aMiNVBoxNode [
+
+	^ self visitBox: aMiNVBoxNode withRSLayout: RSFlowLayout
+]
+
+{ #category : #visiting }
+MiNewVisuBuilder >> visitHorizontalBox: aMiNVBoxNode [
+
+	^ self visitBox: aMiNVBoxNode withRSLayout: RSHorizontalLineLayout
+]
+
+{ #category : #visiting }
+MiNewVisuBuilder >> visitPackageElement: aPackageElement [
 
 	| hNode shape |
-	hNode := aMiNVElement model.
+	hNode := self createHNodeForPackage: aPackageElement.
 	rootNode add: hNode.
 	shape := (self shapeFor: hNode)
 		         sparent: self container;
 		         yourself.
 	shapes add: shape.
 	^ shape
-]
-
-{ #category : #visiting }
-MiNewVisuBuilder >> visitFlowLayout: aMiNVFlowLayoutNode [
-
-	^ self
-		  visitLayout: aMiNVFlowLayoutNode
-		  withRSLayout: (self roassalLayout: aMiNVFlowLayoutNode class) new
-]
-
-{ #category : #visiting }
-MiNewVisuBuilder >> visitHorizontalLayout: aMiNVHorizontalLayoutNode [
-
-	^ self
-		  visitLayout: aMiNVHorizontalLayoutNode
-		  withRSLayout:
-			  ((self roassalLayout: aMiNVHorizontalLayoutNode class) new
-				   gapSize: aMiNVHorizontalLayoutNode gapSize;
-				   alignMiddle;
-				   yourself)
-]
-
-{ #category : #visiting }
-MiNewVisuBuilder >> visitLayout: aMiNVLayoutNode withRSLayout: aRoassalLayout [
-
-	| group layoutChildrenNodes |
-	layoutChildrenNodes := OrderedCollection new.
-	group := RSGroup new.
-
-	aMiNVLayoutNode children do: [ :c | 
-		 group add: (c acceptVisitor: self)].
-
-	aRoassalLayout on: group.
-
-	^ group asShape
 ]
 
 { #category : #visiting }
@@ -941,12 +639,20 @@ MiNewVisuBuilder >> visitQueryNode: aMiNVQueryNode [
 ]
 
 { #category : #visiting }
-MiNewVisuBuilder >> visitVerticalLayout: aMiNVVerticalLayoutNode [
+MiNewVisuBuilder >> visitTypeElement: aMiLVTypeElement [
 
-	^ self
-		  visitLayout: aMiNVVerticalLayoutNode
-		  withRSLayout: ((self roassalLayout: aMiNVVerticalLayoutNode class) new
-				   alignCenter;
-				   gapSize: aMiNVVerticalLayoutNode gapSize;
-				   yourself)
+	| hNode shape |
+	hNode := self createHNodeFor: aMiLVTypeElement.
+	rootNode add: hNode.
+	shape := (self shapeFor: hNode)
+		         sparent: self container;
+		         yourself.
+	shapes add: shape.
+	^ shape
+]
+
+{ #category : #visiting }
+MiNewVisuBuilder >> visitVerticalBox: aMiNVBoxNode [
+
+	^ self visitBox: aMiNVBoxNode withRSLayout: RSVerticalLineLayout
 ]

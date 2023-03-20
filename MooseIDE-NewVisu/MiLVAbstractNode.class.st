@@ -1,17 +1,17 @@
 Class {
-	#name : #MiNVAbstractNode,
+	#name : #MiLVAbstractNode,
 	#superclass : #Object,
 	#category : #'MooseIDE-NewVisu-Model'
 }
 
 { #category : #visiting }
-MiNVAbstractNode >> acceptVisitor: aVisitor [
+MiLVAbstractNode >> acceptVisitor: aVisitor [
 
 	self subclassResponsibility
 ]
 
 { #category : #testing }
-MiNVAbstractNode >> hasMultipleNodes [
+MiLVAbstractNode >> hasMultipleNodes [
 
 	^ false
 ]

@@ -23,15 +23,3 @@ MiLayerVisualization >> model [
 
 	^ self owner model
 ]
-
-{ #category : #highlighting }
-MiLayerVisualization >> run [
-
-	super run.
-
-	builder := MiNewVisuBuilder new
-		           mapModel: self model;
-		           container: self canvas;
-		           yourself.
-	builder build
-]
