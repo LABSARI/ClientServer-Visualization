@@ -56,10 +56,8 @@ MiNewVisuBuilder >> boxChildrenColorFor: anHNode [
 MiNewVisuBuilder >> build [
 
 	mapModel initializePartitioning.
-	
-	description := mapModel buildFirstDescription.
 
-	self visit: description.
+	self visit: mapModel buildDescription.
 
 	self addNextLevelButton.
 
@@ -181,46 +179,6 @@ MiNewVisuBuilder >> buildDescription [
 ]
 
 { #category : #building }
-MiNewVisuBuilder >> buildLayoutsFor: dicts reversed: reverse [
-
-	| layouts |
-	layouts := dicts withIndexCollect: [ :d :i | 
-		           | box layout entities filtered |
-		           i = 1
-			           ifTrue: [ 
-				           filtered := (self entitiesWithViolationFrom: d)
-					                       asOrderedCollection.
-
-				           layout := MiLVVerticalLayoutNode new.
-				           box := MiLVAbstractBoxNode new
-					                  name:
-						                  filtered size asString , '/'
-						                  , d values size asString;
-					                  layout: layout;
-					                  yourself.
-				           entities := filtered sort: [ :a :b | a name < b name ] ]
-			           ifFalse: [ 
-				           filtered := (self entitiesWithViolationFrom: d)
-					                       asOrderedCollection.
-				           layout := MiLVFlowLayoutNode new.
-				           entities := self commonPackagesFor: filtered.
-				           box := MiLVAbstractBoxNode new
-					                  name:
-						                  filtered size asString , '/'
-						                  , d values size asString;
-					                  layout: layout;
-					                  yourself ].
-		           layout addAll: (entities collect: [ :c | 
-				            MiLVAbstractElement new
-					            model: c;
-					            yourself ]).
-		           box ].
-	^ reverse
-		  ifTrue: [ layouts reversed ]
-		  ifFalse: [ layouts ]
-]
-
-{ #category : #building }
 MiNewVisuBuilder >> buildNodeFromEntity: anEntity [
 
 	| node |
@@ -312,12 +270,6 @@ MiNewVisuBuilder >> elements [
 		(mapModel entities sort: [ :a :b | a name < b name ]).
 
 	^ entities collect: [ :e | self buildNodeFromEntity: e ]
-]
-
-{ #category : #building }
-MiNewVisuBuilder >> entitiesWithViolationFrom: aDict [
-
-	^ aDict values
 ]
 
 { #category : #building }
@@ -502,7 +454,7 @@ MiNewVisuBuilder >> renderLinesIn: aCanvas [
 MiNewVisuBuilder >> roassalBorderFor: aSymbol [
 
 	aSymbol = #dashed ifTrue: [ ^ self borderForSet ].
-	aSymbol = #line ifTrue: [ ^ self shouldBeImplemented ].
+	aSymbol = #line ifTrue: [ ^ nil ].
 	aSymbol = #without ifTrue: [ ^ nil ]
 ]
 
@@ -555,7 +507,7 @@ MiNewVisuBuilder >> shapeFor: node [
 MiNewVisuBuilder >> updateBuild [
 
 	self container shapes do: #remove.
-	description := self buildDescription.
+	description := mapModel buildDescription.
 	self visit: description.
 	rootNode hideAllLinks.
 	self renderLinesIn: self container.

@@ -12,7 +12,9 @@ Class {
 		'clientLayers',
 		'purgatoryLayer',
 		'serverLayers',
-		'sharedLayer'
+		'sharedLayer',
+		'incomingCache',
+		'outgoingCache'
 	],
 	#category : #'MooseIDE-NewVisu-Model'
 }
@@ -34,54 +36,31 @@ MiLayerVisualizationModel >> addDependenciesToShared [
 ]
 
 { #category : #partitioning }
-MiLayerVisualizationModel >> addLayer [ 
-
-	continueClient ifTrue: [ 
-		continueClient := self addLayerToClientFromLevel: index ].
-	continueServer ifTrue: [ 
-		continueServer := self addLayerToServerFromLevel: index ].
-	index := index + 1.
-	self addDependenciesToShared
-]
-
-{ #category : #partitioning }
 MiLayerVisualizationModel >> addLayerToClientFromLevel: level [
 
-	| newDict currentDict hasAddedSomething |
-	self flag: 'to modifty'.
+	| newLayer currentLayer hasAddedSomething |
 	hasAddedSomething := false.
-	newDict := Dictionary new.
-	currentDict := self clientLayers at: level.
-	currentDict associationsDo: [ :assoc | 
-		| class hNode |
-		class := assoc key.
-		hNode := assoc value.
+	newLayer := Set new.
+	currentLayer := self clientLayers at: level.
+
+
+	currentLayer do: [ :class | "outgoings"
 		(self classDependenciesFor: class) do: [ :d | 
 			| response |
 			response := self classAlreadyPresent: d.
 			response = #server ifTrue: [ 
 				(self indexOf: d in: self serverLayers) > 1 ifTrue: [ 
-					hNode dependencyTo: (self moveClass: d toSharedfrom: self serverLayers) ] ].
-			response = #shared ifTrue: [ "hNode dependencyTo: (sharedDict at: d)"
-				 ] ].
+					self moveClass: d toSharedfrom: self serverLayers ] ] ].
+		"incomings"
 		(self classDependantsFor: class) do: [ :d | 
 			| response |
 			response := self classAlreadyPresent: d.
-			response = #free ifTrue: [ 
-				| newNode |
-				newNode := self buildNodeFromEntity: d.
-				newNode dependencyTo: hNode.
-				newDict at: d put: newNode.
-				hasAddedSomething := true ].
-			response = #client ifTrue: [ 
-				newDict at: d ifPresent: [ :n | n dependencyTo: hNode ] ].
+			response = #free ifTrue: [ newLayer add: d ].
 			response = #server ifTrue: [ 
 				(self indexOf: d in: self serverLayers) > 1 ifTrue: [ 
-					hNode dependencyTo: (self moveClass: d toSharedfrom: self serverLayers) ] ].
-			response = #shared ifTrue: [
-				 ] ] ].
-	hasAddedSomething ifTrue: [ 
-		self clientLayers add: newDict.
+					self moveClass: d toSharedfrom: self serverLayers ] ] ] ].
+	newLayer ifNotEmpty: [ 
+		self clientLayers add: newLayer.
 		^ true ].
 	^ false
 ]
@@ -89,12 +68,11 @@ MiLayerVisualizationModel >> addLayerToClientFromLevel: level [
 { #category : #partitioning }
 MiLayerVisualizationModel >> addLayerToServerFromLevel: level [
 
-	| newDict currentDict |
-	self flag: 'to modifty'.
-	newDict := Dictionary new.
-	currentDict := self serverLayers at: level.
+	| newLayer currentLayer |
+	newLayer := Set new.
+	currentLayer := self serverLayers at: level.
 
-	currentDict associationsDo: [ :assoc | 
+	currentLayer associationsDo: [ :assoc | 
 		| class hNode |
 		class := assoc key.
 		hNode := assoc value.
@@ -110,14 +88,14 @@ MiLayerVisualizationModel >> addLayerToServerFromLevel: level [
 				| newNode |
 				newNode := self buildNodeFromEntity: d.
 				hNode dependencyTo: newNode.
-				newDict at: d put: newNode ].
+				newLayer at: d put: newNode ].
 			response = #client ifTrue: [ 
 				(self indexOf: d in: self clientLayers) > 1 ifTrue: [ 
 					hNode dependencyTo: (self moveClass: d toSharedfrom: self clientLayers) ] ].
 			response = #shared ifTrue: [ "hNode dependencyTo: (sharedDict at: d)"
 				 ] ] ].
-	newDict ifNotEmpty: [ 
-		self serverLayers add: newDict.
+	newLayer ifNotEmpty: [ 
+		self serverLayers add: newLayer.
 		^ true ].
 	^ false
 ]
@@ -196,6 +174,8 @@ MiLayerVisualizationModel >> initialize [
 
 	super initialize.
 	self initializeSettings.
+	incomingCache := Dictionary new.
+	outgoingCache := Dictionary new.
 	sharedLayer := Set new.
 	purgatoryLayer := Set new.
 	serverLayers := OrderedCollection new.
