@@ -162,6 +162,12 @@ MiLayerVisualizationModel >> followEntity: anEntity [
 	browser runVisualization.
 ]
 
+{ #category : #accessing }
+MiLayerVisualizationModel >> incomingCache [
+
+	^ incomingCache
+]
+
 { #category : #partitioning }
 MiLayerVisualizationModel >> indexOf: aClass in: dicts [
 
@@ -219,6 +225,12 @@ MiLayerVisualizationModel >> moveClass: aClass toSharedfrom: collectionOfDicts [
 			^ hNode ] ].
 
 	^ nil
+]
+
+{ #category : #accessing }
+MiLayerVisualizationModel >> outgoingCache [
+
+	^ outgoingCache
 ]
 
 { #category : #accessing }

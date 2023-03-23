@@ -1,10 +1,13 @@
 Class {
 	#name : #MiWebDCRLayerVisualizationModel,
 	#superclass : #MiLayerVisualizationModel,
+	#instVars : [
+		'displayStrategy'
+	],
 	#category : #'MooseIDE-NewVisu-Model'
 }
 
-{ #category : #partitionning }
+{ #category : #partitioning }
 MiWebDCRLayerVisualizationModel >> add: aFamixJavaClass to: aCollection layer: anInteger [
 
 	self
@@ -12,26 +15,26 @@ MiWebDCRLayerVisualizationModel >> add: aFamixJavaClass to: aCollection layer: a
 		toLayer: (aCollection at: anInteger ifAbsentPut: [ Set new ])
 ]
 
-{ #category : #partitionning }
+{ #category : #partitioning }
 MiWebDCRLayerVisualizationModel >> add: aFamixJavaClass toLayer: aCollection [
 
 	aCollection add: aFamixJavaClass
 ]
 
-{ #category : #partitionning }
+{ #category : #partitioning }
 MiWebDCRLayerVisualizationModel >> addCacheClientDependencies [
 
 	^ (clientLayers at: index) flatCollectAsSet: [ :class | 
-		self haltIf: [  (self classDependantsFor: class) size > 2 ].
+		
 		  (self classDependantsFor: class) select: [ :dc | 
 			  | exits |
 			  exits := outgoingCache includesKey: dc.
 			  self addDependency: dc in: incomingCache for: class.
 			  self addDependency: class in: outgoingCache for: dc.
-			  exits ] ]
+			  exits not ] ]
 ]
 
-{ #category : #partitionning }
+{ #category : #partitioning }
 MiWebDCRLayerVisualizationModel >> addCacheServerDependencies [
 
 	^ (serverLayers at: index) flatCollectAsSet: [ :class | 
@@ -43,7 +46,7 @@ MiWebDCRLayerVisualizationModel >> addCacheServerDependencies [
 			  exits ] ]
 ]
 
-{ #category : #partitionning }
+{ #category : #partitioning }
 MiWebDCRLayerVisualizationModel >> addDependency: valueEntity in: aDictionary for: keyEntity [
 
 	aDictionary
@@ -56,10 +59,10 @@ MiWebDCRLayerVisualizationModel >> addDependency: valueEntity in: aDictionary fo
 MiWebDCRLayerVisualizationModel >> addLayer [
 
 	| allNewClasses |
-	1halt.
+	
 	allNewClasses := self addCacheClientDependencies.
 	allNewClasses := allNewClasses union: self addCacheServerDependencies.
-
+	
 	allNewClasses do: [ :class | self partitionClass: class ].
 	index := index + 1
 ]
@@ -81,14 +84,12 @@ MiWebDCRLayerVisualizationModel >> buildDescription [
 { #category : #building }
 MiWebDCRLayerVisualizationModel >> buildMainCentralLayer: aLayer [
 
-	| filtered |
-	filtered := self entitiesWithViolationFrom:
-		            aLayer asOrderedCollection.
-
 	^ MiLVVerticalBoxNode new
-		  name: filtered size asString , '/' , aLayer size asString;
-		  addAll: ((self createTypeElementsFor: filtered) sort: [ :a :b | 
-					   a name < b name ]);
+		  name: aLayer size asString , '/' , aLayer size asString;
+		  addAll:
+			  ((self createTypeElementsFor: aLayer asOrderedCollection) sort: [ 
+					   :a 
+					   :b | a name < b name ]);
 		  yourself
 ]
 
@@ -118,12 +119,12 @@ MiWebDCRLayerVisualizationModel >> buildMainLayer [
 		  add: (MiLVHorizontalBoxNode new
 				   dashedBorder;
 				   name: 'Client';
-				   addAll: (self buildMainLayersFor: clientLayers) reversed;
+				   addAll: (self buildMainLayersFor: (displayStrategy fetchViolatingClients)) reversed;
 				   yourself);
 		  add: (MiLVHorizontalBoxNode new
 				   dashedBorder;
 				   name: 'Server';
-				   addAll: (self buildMainLayersFor: serverLayers);
+				   addAll: (self buildMainLayersFor: displayStrategy fetchViolatingServers);
 				   yourself);
 		  yourself
 ]
@@ -150,22 +151,47 @@ MiWebDCRLayerVisualizationModel >> buildPurgatoryLayer [
 { #category : #building }
 MiWebDCRLayerVisualizationModel >> buildSharedLayer [
 
-	| sharedGroups |
+	| sharedGroups dtoDict dtoUsedByClient dtoUsedByServer dtoNotShared dtoSize dtoBox |
 	sharedGroups := Dictionary new.
 	sharedGroups at: #dto put: sharedLayer.
 	sharedGroups at: #enum put: #(  ).
 
+	dtoDict := displayStrategy fetchNotSharedDTOs.
+	dtoUsedByClient := self createTypeElementsFor: (dtoDict at: #client).
+	dtoUsedByServer := self createTypeElementsFor: (dtoDict at: #server).
+	dtoNotShared := self createTypeElementsFor: (dtoDict at: #nothing).
+
+	dtoSize := dtoUsedByClient size + dtoUsedByServer size
+	           + dtoNotShared size.
+
+	dtoBox := MiLVFlowBoxNode new
+		          dashedBorder;
+		          name:
+			          'DTOs: ' , dtoSize asString , '/'
+			          , sharedLayer size asString , ' classes';
+		          gapSize: 80;
+		          yourself.
+	dtoUsedByClient ifNotEmpty: [ 
+		dtoBox add:
+			(self
+				 descriptionBoxFor: dtoUsedByClient
+				 with: 'Used only by client: ') ].
+
+	dtoUsedByServer ifNotEmpty: [ 
+		dtoBox add:
+			(self
+				 descriptionBoxFor: dtoUsedByServer
+				 with: 'Used only by server: ') ].
+
+	dtoNotShared ifNotEmpty: [ 
+		dtoBox add:
+			(self descriptionBoxFor: dtoNotShared with: 'Not shared :') ].
 
 	^ MiLVHorizontalBoxNode new
 		  dashedBorder;
 		  name: 'Shared';
 		  gapSize: 80;
-		  add: (MiLVFlowBoxNode new
-				   dashedBorder;
-				   name: 'DTOs: ' , sharedLayer size asString , ' classes';
-				   gapSize: 80;
-				   addAll: (self commonPackagesFor: sharedLayer);
-				   yourself);
+		  add: dtoBox;
 		  add: (MiLVFlowBoxNode new
 				   dashedBorder;
 				   name:
@@ -212,6 +238,29 @@ MiWebDCRLayerVisualizationModel >> createTypeElementsFor: aCollectionOfMooseEnti
 			  yourself ]
 ]
 
+{ #category : #building }
+MiWebDCRLayerVisualizationModel >> descriptionBoxFor: aCollection with: aName [
+
+	^ MiLVFlowBoxNode new
+		  dashedBorder;
+		  name: aName , aCollection size asString;
+		  gapSize: 80;
+		  addAll: aCollection;
+		  yourself
+]
+
+{ #category : #accessing }
+MiWebDCRLayerVisualizationModel >> displayStrategy [
+
+	^ displayStrategy
+]
+
+{ #category : #accessing }
+MiWebDCRLayerVisualizationModel >> displayStrategy: anObject [
+
+	displayStrategy := anObject
+]
+
 { #category : #queries }
 MiWebDCRLayerVisualizationModel >> dtos [
 
@@ -232,9 +281,12 @@ MiWebDCRLayerVisualizationModel >> implementations [
 
 { #category : #initialization }
 MiWebDCRLayerVisualizationModel >> initialize [
-	
+
 	super initialize.
 	queriesHolder := MiDQueriesHolder new.
+	displayStrategy := MiFilterViolationStrategy new
+		                   visualizationModel: self;
+		                   yourself
 ]
 
 { #category : #partitioning }
@@ -276,17 +328,19 @@ MiWebDCRLayerVisualizationModel >> interfaces [
 	^ queriesHolder GWTServices result
 ]
 
-{ #category : #partitionning }
+{ #category : #partitioning }
 MiWebDCRLayerVisualizationModel >> partitionClass: aFamixJavaClass [
 
 	incomingCache
 		at: aFamixJavaClass
-		ifPresent: [ 
+		ifPresent: [ "Intruduit par une classe du serveur"
 			outgoingCache
 				at: aFamixJavaClass
-				ifPresent: [ self add: aFamixJavaClass toLayer: purgatoryLayer ]
-				ifAbsent: [ 
-				self add: aFamixJavaClass to: serverLayers layer: index + 1 ] ]
-		ifAbsent: [ 
-		self add: aFamixJavaClass to: clientLayers layer: index + 1 ]
+				ifPresent: [ "Introduit par une classe du serveur et par une classe du client" 
+					self add: aFamixJavaClass toLayer: purgatoryLayer ]
+				ifAbsent: [ "Intruduit uniquement par une classe du serveur" 
+					self add: aFamixJavaClass to: serverLayers layer: index + 1 ] ]
+		ifAbsent: [ "Pas intruduit par une classe du serveur"
+			(outgoingCache includesKey: aFamixJavaClass) ifTrue: [ "Introduit uniquement par une classe du client" 
+				self add: aFamixJavaClass to: clientLayers layer: index + 1 ] ]
 ]
