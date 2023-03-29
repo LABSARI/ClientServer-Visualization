@@ -2,7 +2,9 @@ Class {
 	#name : #MiWebDCRLayerVisualizationModel,
 	#superclass : #MiLayerVisualizationModel,
 	#instVars : [
-		'displayStrategy'
+		'displayStrategy',
+		'clientClasses',
+		'serverClasses'
 	],
 	#category : #'MooseIDE-NewVisu-Model'
 }
@@ -25,13 +27,13 @@ MiWebDCRLayerVisualizationModel >> add: aFamixJavaClass toLayer: aCollection [
 MiWebDCRLayerVisualizationModel >> addCacheClientDependencies [
 
 	^ (clientLayers at: index) flatCollectAsSet: [ :class | 
-		
 		  (self classDependantsFor: class) select: [ :dc | 
-			  | exits |
-			  exits := outgoingCache includesKey: dc.
+			  | exists |
+			  exists := outgoingCache includesKey: dc.
 			  self addDependency: dc in: incomingCache for: class.
 			  self addDependency: class in: outgoingCache for: dc.
-			  exits not ] ]
+			(exists not and: [ incomingCache includesKey: dc ]) ifTrue: [ self tagInViolation: dc ].
+			  (self checkIsImplementationOrService: dc) not and: [ exists not ] ] ]
 ]
 
 { #category : #partitioning }
@@ -43,7 +45,7 @@ MiWebDCRLayerVisualizationModel >> addCacheServerDependencies [
 			  exits := incomingCache includesKey: dc.
 			  self addDependency: dc in: outgoingCache for: class.
 			  self addDependency: class in: incomingCache for: dc.
-			  exits ] ]
+			  (self checkIsImplementationOrService: dc) not and: [ exits not ] ] ]
 ]
 
 { #category : #partitioning }
@@ -58,12 +60,13 @@ MiWebDCRLayerVisualizationModel >> addDependency: valueEntity in: aDictionary fo
 { #category : #partitioning }
 MiWebDCRLayerVisualizationModel >> addLayer [
 
-	| allNewClasses |
+	| allNewSClasses allNewCClasses |
 	
-	allNewClasses := self addCacheClientDependencies.
-	allNewClasses := allNewClasses union: self addCacheServerDependencies.
-	
-	allNewClasses do: [ :class | self partitionClass: class ].
+	allNewCClasses := self addCacheClientDependencies.
+	allNewSClasses := self addCacheServerDependencies.
+	(allNewCClasses union: allNewSClasses) do: [ :class | self partitionClass: class ].
+	self setClientClasses.
+	self setServerClasses.
 	index := index + 1
 ]
 
@@ -85,7 +88,8 @@ MiWebDCRLayerVisualizationModel >> buildDescription [
 MiWebDCRLayerVisualizationModel >> buildMainCentralLayer: aLayer [
 
 	^ MiLVVerticalBoxNode new
-		  name: aLayer size asString , '/' , aLayer size asString;
+		  dashedBorder;
+		  name: aLayer size asString ;
 		  addAll:
 			  ((self createTypeElementsFor: aLayer asOrderedCollection) sort: [ 
 					   :a 
@@ -96,12 +100,12 @@ MiWebDCRLayerVisualizationModel >> buildMainCentralLayer: aLayer [
 { #category : #building }
 MiWebDCRLayerVisualizationModel >> buildMainGroupedLayer: aLayer [
 
-	| filtered entities |
-	filtered := self entitiesWithViolationFrom:
-		            aLayer asOrderedCollection.
-	entities := self commonPackagesFor: filtered.
+	| entities |
+	
+	entities := self entitiesOf: aLayer asOrderedCollection.
 	^ MiLVFlowBoxNode new
-		  name: filtered size asString , '/' , aLayer size asString;
+		  dashedBorder;
+		  name: aLayer size asString ;
 		  addAll: (entities sort: [ :a :b | a name < b name ]);
 		  yourself
 ]
@@ -132,10 +136,13 @@ MiWebDCRLayerVisualizationModel >> buildMainLayer [
 { #category : #building }
 MiWebDCRLayerVisualizationModel >> buildMainLayersFor: layers [
 
-	^ layers withIndexCollect: [ :layer :i | 
+	^ (layers withIndexCollect: [ :layer :i | 
 		  i = 1
-			  ifTrue: [ self buildMainCentralLayer:  layer ]
-			  ifFalse: [ self buildMainGroupedLayer: layer ] ]
+			  ifTrue: [ self buildMainCentralLayer: layer ]
+			  ifFalse: [ 
+				  layer
+					  ifNotEmpty: [ self buildMainGroupedLayer: layer ]
+					  ifEmpty: [ nil ] ] ]) reject: #isNil
 ]
 
 { #category : #building }
@@ -144,7 +151,7 @@ MiWebDCRLayerVisualizationModel >> buildPurgatoryLayer [
 	^ MiLVFlowBoxNode new
 		  dashedBorder;
 		  name: 'Purgatory: ' , purgatoryLayer size asString , ' classes';
-		  addAll: (self commonPackagesFor: purgatoryLayer);
+		  addAll: (self entitiesOf: purgatoryLayer);
 		  yourself
 ]
 
@@ -208,6 +215,37 @@ MiWebDCRLayerVisualizationModel >> buildSharedLayer [
 		  yourself
 ]
 
+{ #category : #partitioning }
+MiWebDCRLayerVisualizationModel >> checkInViolation: aClass [
+
+	
+]
+
+{ #category : #testing }
+MiWebDCRLayerVisualizationModel >> checkIsImplementation: aFamixJavaClass [
+
+	^ (self serverLayers at: 1) includes: aFamixJavaClass
+]
+
+{ #category : #partitioning }
+MiWebDCRLayerVisualizationModel >> checkIsImplementationOrService: aClass [
+
+	^ (self checkIsService: aClass) or: [ 
+		  self checkIsImplementation: aClass ]
+]
+
+{ #category : #testing }
+MiWebDCRLayerVisualizationModel >> checkIsService: aFamixJavaClass [
+
+	^ (self clientLayers at: 1) includes: aFamixJavaClass
+]
+
+{ #category : #accessing }
+MiWebDCRLayerVisualizationModel >> clientClasses [ 
+
+	^ clientClasses 
+]
+
 { #category : #building }
 MiWebDCRLayerVisualizationModel >> commonPackagesFor: elements [
 
@@ -268,6 +306,14 @@ MiWebDCRLayerVisualizationModel >> dtos [
 ]
 
 { #category : #building }
+MiWebDCRLayerVisualizationModel >> entitiesOf: aLayer [
+
+	^ aLayer size > 100
+		  ifTrue: [ self commonPackagesFor: aLayer ]
+		  ifFalse: [ self createTypeElementsFor: aLayer ]
+]
+
+{ #category : #building }
 MiWebDCRLayerVisualizationModel >> entitiesWithViolationFrom: aDict [
 
 	^ aDict
@@ -286,7 +332,20 @@ MiWebDCRLayerVisualizationModel >> initialize [
 	queriesHolder := MiDQueriesHolder new.
 	displayStrategy := MiFilterViolationStrategy new
 		                   visualizationModel: self;
-		                   yourself
+		                   yourself.
+		
+	clientClasses := Dictionary new.
+	serverClasses := Dictionary new.
+]
+
+{ #category : #partitioning }
+MiWebDCRLayerVisualizationModel >> initializeCaches [
+
+	(serverLayers at: 1) do: [ :c | 
+		(self classDependenciesFor: c) do: [ :d | 
+			((clientLayers at: 1) like: d) ifNotNil: [ 
+				self addDependency: d in: outgoingCache for: c.
+				self addDependency: c in: incomingCache for: d ] ] ]
 ]
 
 { #category : #partitioning }
@@ -306,14 +365,15 @@ MiWebDCRLayerVisualizationModel >> initializeFirstServerLayer [
 { #category : #partitioning }
 MiWebDCRLayerVisualizationModel >> initializePartitioning [
 
-	
 	self initializeFirstClientLayer.
 	self initializeFirstServerLayer.
 	self initializeSharedWithDTOs.
-
+	self initializeCaches.
+	self mooseModel tagNamed: 'violation'.
 	continueClient := true.
 	continueServer := true.
-	index := 1
+	index := 1.
+	self addLayer
 ]
 
 { #category : #partitioning }
@@ -328,19 +388,89 @@ MiWebDCRLayerVisualizationModel >> interfaces [
 	^ queriesHolder GWTServices result
 ]
 
+{ #category : #testing }
+MiWebDCRLayerVisualizationModel >> isAlreadyInVisu: aFamixJavaClass [
+
+	^ (self isClient: aFamixJavaClass) or: [ 
+		  (self isServer: aFamixJavaClass) or: [ 
+			  self isPurgatory: aFamixJavaClass ] ]
+]
+
+{ #category : #testing }
+MiWebDCRLayerVisualizationModel >> isClient:aClass [
+	^ self clientClasses includesKey: aClass
+]
+
+{ #category : #testing }
+MiWebDCRLayerVisualizationModel >> isPurgatory:aClass [
+	^ self purgatoryLayer includes: aClass
+]
+
+{ #category : #testing }
+MiWebDCRLayerVisualizationModel >> isServer:aClass [
+	^ self serverClasses includesKey: aClass
+]
+
 { #category : #partitioning }
 MiWebDCRLayerVisualizationModel >> partitionClass: aFamixJavaClass [
 
+	(self isClient: aFamixJavaClass) ifTrue: [ 
+		self
+			removeClass: aFamixJavaClass
+			fromLayer:
+			(self clientLayers at: (clientClasses at: aFamixJavaClass)).
+		self add: aFamixJavaClass toLayer: purgatoryLayer.
+		aFamixJavaClass tagWithName: 'purgatory' ].
+	(self isServer: aFamixJavaClass) ifTrue: [ 
+		self
+			removeClass: aFamixJavaClass
+			fromLayer:
+			(self serverLayers at: (serverClasses at: aFamixJavaClass)).
+		self add: aFamixJavaClass toLayer: purgatoryLayer.
+		aFamixJavaClass tagWithName: 'purgatory' ].
+	
+	
 	incomingCache
 		at: aFamixJavaClass
 		ifPresent: [ "Intruduit par une classe du serveur"
 			outgoingCache
 				at: aFamixJavaClass
-				ifPresent: [ "Introduit par une classe du serveur et par une classe du client" 
-					self add: aFamixJavaClass toLayer: purgatoryLayer ]
-				ifAbsent: [ "Intruduit uniquement par une classe du serveur" 
+				ifPresent: [ "Introduit par une classe du serveur et par une classe du client"
+					self add: aFamixJavaClass toLayer: purgatoryLayer.
+					aFamixJavaClass tagWithName: 'purgatory' ]
+				ifAbsent: [ "I		ntruduit uniquement par une classe du serveur" 
 					self add: aFamixJavaClass to: serverLayers layer: index + 1 ] ]
 		ifAbsent: [ "Pas intruduit par une classe du serveur"
 			(outgoingCache includesKey: aFamixJavaClass) ifTrue: [ "Introduit uniquement par une classe du client" 
 				self add: aFamixJavaClass to: clientLayers layer: index + 1 ] ]
+]
+
+{ #category : #partitioning }
+MiWebDCRLayerVisualizationModel >> removeClass: aFamixJavaClass fromLayer: aLayer [
+	aLayer remove: aFamixJavaClass 
+	
+]
+
+{ #category : #accessing }
+MiWebDCRLayerVisualizationModel >> serverClasses [ 
+
+	^ serverClasses.
+]
+
+{ #category : #accessing }
+MiWebDCRLayerVisualizationModel >> setClientClasses [ 
+
+	self clientLayers allButFirst doWithIndex: [ :l :i | l do: [:c | clientClasses at: c put: i + 1 ]  ] .
+
+]
+
+{ #category : #accessing }
+MiWebDCRLayerVisualizationModel >> setServerClasses [ 
+
+	self serverLayers allButFirst doWithIndex: [ :l :i | l do: [:c | serverClasses at: c put: i + 1]  ] .
+]
+
+{ #category : #util }
+MiWebDCRLayerVisualizationModel >> tagInViolation: aClass [
+	aClass tagWithName: 'violation'
 ]

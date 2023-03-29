@@ -10,10 +10,28 @@ Class {
 		'continueClient',
 		'continueServer',
 		'index',
-		'description'
+		'description',
+		'visitHNodeCache'
 	],
 	#category : #'MooseIDE-NewVisu-Roassal-builder'
 }
+
+{ #category : #visiting }
+MiNewVisuBuilder >> addDependenciesTo: anHNode [
+
+	(mapModel purgatoryLayer includes: anHNode rawModel) ifFalse: [ 
+		^ self ].
+	mapModel incomingCache at: anHNode rawModel ifPresent: [ :c | 
+		c do: [ :i | 
+			visitHNodeCache
+				at: i
+				ifPresent: [ :node | node dependencyTo: anHNode ] ] ].
+	mapModel outgoingCache at: anHNode rawModel ifPresent: [ :c | 
+		c do: [ :i | 
+			visitHNodeCache
+				at: i
+				ifPresent: [ :node | anHNode dependencyTo: node ] ] ]
+]
 
 { #category : #building }
 MiNewVisuBuilder >> addNextLevelButton [
@@ -243,11 +261,26 @@ MiNewVisuBuilder >> commonPackagesFor: classes [
 ]
 
 { #category : #visiting }
+MiNewVisuBuilder >> createAndStoreHNodeFor: anLVElement [
+
+	| hn |
+	hn := self createHNodeFor: anLVElement.
+	visitHNodeCache at: anLVElement model put: hn.
+	self addDependenciesTo: hn.
+	^ hn
+]
+
+{ #category : #visiting }
 MiNewVisuBuilder >> createHNodeFor: anLVElement [
 
+	| color |
+	color := (self isInViolation: anLVElement)
+		         ifTrue: [ Color red ]
+		         ifFalse: [ nil ].
 	^ HNode new
 		  name: anLVElement name;
 		  rawModel: anLVElement model;
+		  color: color;
 		  collapse;
 		  yourself
 ]
@@ -257,7 +290,7 @@ MiNewVisuBuilder >> createHNodeForPackage: aPackageElement [
 
 	^ (self createHNodeFor: aPackageElement)
 		  children:
-			  (aPackageElement children collect: [ :c | self createHNodeFor: c ]);
+			  (aPackageElement children collect: [ :c | self createAndStoreHNodeFor: c ]);
 		  yourself
 ]
 
@@ -347,6 +380,13 @@ MiNewVisuBuilder >> initialize [
 	pNodes := OrderedCollection new
 ]
 
+{ #category : #visiting }
+MiNewVisuBuilder >> isInViolation: anLVElement [
+
+	^ (anLVElement model hasTagNamed: 'violation') and: [ 
+		  (anLVElement model hasTagNamed: 'purgatory') not ]
+]
+
 { #category : #building }
 MiNewVisuBuilder >> labelFromString: aString [
 
@@ -406,18 +446,7 @@ MiNewVisuBuilder >> nodeAnnouncer [
 { #category : #building }
 MiNewVisuBuilder >> nodeIsShared: node [
 
-	| c s |
-	self flag: 'to modify'.
-	c := false.
-	s := false.
-	node dependencies ifEmpty: [ ^ false ].
-	node dependencies do: [ :d | 
-		d to = node ifTrue: [ 
-			| response |
-			response := self classAlreadyPresent: d from rawModel.
-			response = #client ifTrue: [ c := true ].
-			response = #server ifTrue: [ s := true ] ] ].
-	^ c & s
+	^ false
 ]
 
 { #category : #partitioning }
@@ -509,7 +538,7 @@ MiNewVisuBuilder >> updateBuild [
 	self container shapes do: #remove.
 	description := mapModel buildDescription.
 	self visit: description.
-	rootNode hideAllLinks.
+"	rootNode hideAllLinks."
 	self renderLinesIn: self container.
 	self container signalUpdate
 ]
@@ -520,6 +549,7 @@ MiNewVisuBuilder >> visit: aVisualizationModel [
 	| rootShape |
 	shapes := OrderedCollection new.
 	rootNode := HNode new.
+	visitHNodeCache := Dictionary new.
 	rootShape := aVisualizationModel acceptVisitor: self.
 	self container add: rootShape.
 	self container schildren: shapes
@@ -560,7 +590,11 @@ MiNewVisuBuilder >> visitFlowBox: aMiNVBoxNode [
 { #category : #visiting }
 MiNewVisuBuilder >> visitHorizontalBox: aMiNVBoxNode [
 
-	^ self visitBox: aMiNVBoxNode withRSLayout: RSHorizontalLineLayout
+	^ self
+		  visitBox: aMiNVBoxNode
+		  withRSLayout: (RSHorizontalLineLayout new
+				   alignMiddle;
+				   yourself)
 ]
 
 { #category : #visiting }
@@ -594,7 +628,7 @@ MiNewVisuBuilder >> visitQueryNode: aMiNVQueryNode [
 MiNewVisuBuilder >> visitTypeElement: aMiLVTypeElement [
 
 	| hNode shape |
-	hNode := self createHNodeFor: aMiLVTypeElement.
+	hNode := self createAndStoreHNodeFor: aMiLVTypeElement.
 	rootNode add: hNode.
 	shape := (self shapeFor: hNode)
 		         sparent: self container;
@@ -606,5 +640,9 @@ MiNewVisuBuilder >> visitTypeElement: aMiLVTypeElement [
 { #category : #visiting }
 MiNewVisuBuilder >> visitVerticalBox: aMiNVBoxNode [
 
-	^ self visitBox: aMiNVBoxNode withRSLayout: RSVerticalLineLayout
+	^ self
+		  visitBox: aMiNVBoxNode
+		  withRSLayout: (RSVerticalLineLayout new
+				   alignCenter;
+				   yourself)
 ]
