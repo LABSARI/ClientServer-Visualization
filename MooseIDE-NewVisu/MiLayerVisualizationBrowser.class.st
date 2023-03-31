@@ -22,7 +22,13 @@ MiLayerVisualizationBrowser class >> newModel [
 { #category : #'world menu' }
 MiLayerVisualizationBrowser class >> title [
 
-	^ 'New Visualization'
+	^ 'Multilayer visualization'
+]
+
+{ #category : #'as yet unclassified' }
+MiLayerVisualizationBrowser class >> visualizationBuilder [
+
+	^ MiNewVisuBuilder new
 ]
 
 { #category : #testing }
@@ -75,7 +81,7 @@ MiLayerVisualizationBrowser >> miSelectedItem [
 MiLayerVisualizationBrowser >> runVisualization [
 
 	| builder |
-	builder := MiNewVisuBuilder new
+	builder := self class visualizationBuilder
 		           mapModel: self model;
 		           container: visualization canvas;
 		           yourself.

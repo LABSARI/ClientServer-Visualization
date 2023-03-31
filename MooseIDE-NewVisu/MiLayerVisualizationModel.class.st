@@ -149,6 +149,36 @@ MiLayerVisualizationModel >> clientLayers: anObject [
 	clientLayers := anObject
 ]
 
+{ #category : #building }
+MiLayerVisualizationModel >> commonPackagesFor: elements [
+
+	| groups |
+	groups := (elements groupedBy: [ :e | 
+		           (e atScope: FamixTPackage) anyOne ])
+		          associations.
+
+	^ groups collect: [ :a | 
+		  self createPackageElement: a key with: a value ]
+]
+
+{ #category : #building }
+MiLayerVisualizationModel >> createPackageElement: famixPackage with: elements [
+
+	^ MiLVPackageElement new
+		  model: famixPackage;
+		  children: (self createTypeElementsFor: elements);
+		  yourself
+]
+
+{ #category : #building }
+MiLayerVisualizationModel >> createTypeElementsFor: aCollectionOfMooseEntities [
+
+	^ aCollectionOfMooseEntities collect: [ :me | 
+		  MiLVTypeElement new
+			  model: me;
+			  yourself ]
+]
+
 { #category : #accessing }
 MiLayerVisualizationModel >> description [
 
@@ -159,6 +189,14 @@ MiLayerVisualizationModel >> description [
 MiLayerVisualizationModel >> description: anObject [
 
 	^ description := anObject
+]
+
+{ #category : #building }
+MiLayerVisualizationModel >> entitiesOf: aLayer [
+
+	^ aLayer size > 100
+		  ifTrue: [ self commonPackagesFor: aLayer ]
+		  ifFalse: [ self createTypeElementsFor: aLayer ]
 ]
 
 { #category : #actions }
@@ -258,7 +296,7 @@ MiLayerVisualizationModel >> purgatoryLayer: anObject [
 MiLayerVisualizationModel >> rootClass: anEntity [
 
 	^ (anEntity atScopeWithProperty: [ :c | 
-		   c isType and: [ c isAnonymousClass not ] ]) anyOne
+		   c isType and: [ c typeContainer isPackage ] ]) anyOne
 ]
 
 { #category : #accessing }

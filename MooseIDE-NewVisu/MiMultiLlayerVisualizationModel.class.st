@@ -16,7 +16,7 @@ MiMultiLlayerVisualizationModel >> addDependenciesFrom: sourcesLayer to: targets
 
 	sourcesLayer do: [ :class | 
 		(self classDependenciesFor: class) do: [ :dc | 
-			(targetsLayer includes: dc) ifTrue: [ :target | 
+			(targetsLayer includes: dc) ifTrue: [
 				self addDependency: dc in: incomingCache for: class.
 				self addDependency: class in: outgoingCache for: dc.
 				aBlock value: class value: dc ] ] ]
@@ -57,6 +57,51 @@ MiMultiLlayerVisualizationModel >> addDependenciesToServicesAndTag [
 				service tagWith: serviceTag ] ]
 ]
 
+{ #category : #building }
+MiMultiLlayerVisualizationModel >> buildDaoLayer [
+
+	^ MiLVFlowBoxNode new
+		  dashedBorder;
+		  name: 'Dao: ' , daoLayer size asString , ' classes';
+		  gapSize: 80;
+		  addAll: (self entitiesOf: daoLayer);
+		  yourself
+]
+
+{ #category : #building }
+MiMultiLlayerVisualizationModel >> buildDescription [
+
+	(description := MiLVHorizontalBoxNode new)
+		withoutBorder;
+		gapSize: 90;
+		add: self buildUCLayer;
+		add: self buildServiceLayer;
+		add: self buildDaoLayer.
+	^ description
+]
+
+{ #category : #building }
+MiMultiLlayerVisualizationModel >> buildServiceLayer [
+
+	^ MiLVFlowBoxNode new
+		  dashedBorder;
+		  name: 'Service: ' , serviceLayer size asString , ' classes';
+		  gapSize: 80;
+		  addAll: (self entitiesOf: serviceLayer);
+		  yourself
+]
+
+{ #category : #building }
+MiMultiLlayerVisualizationModel >> buildUCLayer [
+
+	^ MiLVFlowBoxNode new
+		  dashedBorder;
+		  name: 'UC: ' , (serverLayers at: 1) size asString , ' classes';
+		  gapSize: 80;
+		  addAll: (self entitiesOf: (serverLayers at: 1));
+		  yourself
+]
+
 { #category : #queries }
 MiMultiLlayerVisualizationModel >> dao [
 
@@ -64,11 +109,22 @@ MiMultiLlayerVisualizationModel >> dao [
 	sa := (((FQStringQuery
 		         property: #name
 		         comparator: #=
-		         valueToCompare: 'DaoAbstract') runOn:
-		        self services anyOne rawModel mooseModel allClasses) 
+		         valueToCompare: 'DaoAbstract') runOn: mooseModel allClasses) 
 		       reject: [ :c | c subclassHierarchy isEmpty ]) anyOne.
 
-	^ sa subclassHierarchy collect: [ :s | self buildNodeFromEntity: s ]
+	^ sa subclassHierarchy
+]
+
+{ #category : #accessing }
+MiMultiLlayerVisualizationModel >> daoTag [
+
+	^ daoTag
+]
+
+{ #category : #accessing }
+MiMultiLlayerVisualizationModel >> daoTag: anObject [
+
+	daoTag := anObject
 ]
 
 { #category : #queries }
@@ -79,10 +135,32 @@ MiMultiLlayerVisualizationModel >> eServices [
 		         property: #name
 		         comparator: #=
 		         valueToCompare: 'ServiceAbstract') runOn:
-		        self services anyOne rawModel mooseModel allClasses) 
-		       reject: [ :c | c subclassHierarchy isEmpty ]) anyOne.
+		        mooseModel allClasses) reject: [ :c | 
+		       c subclassHierarchy isEmpty ]) anyOne.
 
-	^ sa subclassHierarchy collect: [ :s | self buildNodeFromEntity: s ]
+	^ sa subclassHierarchy
+]
+
+{ #category : #adding }
+MiMultiLlayerVisualizationModel >> initialize [
+
+	super initialize.
+	daoLayer := Set new.
+	serviceLayer := Set new
+]
+
+{ #category : #adding }
+MiMultiLlayerVisualizationModel >> initializeFirstServerLayer [
+
+	| remoteServer |
+	self serverLayers add: Dictionary new.
+	remoteServer := ((FQStringQuery
+		                  property: #name
+		                  comparator: #=
+		                  valueToCompare: 'RemoteServer') runOn:
+		                 mooseModel allClasses) anyOne.
+
+	(self serverLayers at: 1) addAll: remoteServer subclassHierarchy
 ]
 
 { #category : #adding }
@@ -91,20 +169,27 @@ MiMultiLlayerVisualizationModel >> initializeOtherLayers [
 	daoTag := (self mooseModel tagNamed: 'daoViolation')
 		          color: (Color fromHexString: 'B2182B');
 		          yourself.
-	implAndIntViolation := (self mooseModel tagNamed: 'implAndIntViolation').
+	implAndIntViolation := self mooseModel tagNamed:
+		                       'implAndIntViolation'.
 	serviceTag := (self mooseModel tagNamed: 'serviceNoViolation')
 		              color: (Color fromHexString: 'EF8A62');
-		              yourself. 
-	self eServices do: [ :c | serviceLayer at: c rawModel put: c ].
-	self dao do: [ :c | daoLayer at: c rawModel put: c ]
+		              yourself.
+	self eServices do: [ :c | serviceLayer add: c ].
+	self dao do: [ :c | daoLayer add: c ]
 ]
 
 { #category : #adding }
 MiMultiLlayerVisualizationModel >> initializePartitioning [
 
-	super initializePartitioning.
+	self initializeFirstServerLayer.
 	self initializeOtherLayers.
 
 	self addDependenciesToDaoAndTag.
 	self addDependenciesToServicesAndTag
+]
+
+{ #category : #accessing }
+MiMultiLlayerVisualizationModel >> mooseModel: aMooseModel [
+
+	mooseModel := aMooseModel
 ]

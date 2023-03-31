@@ -239,36 +239,6 @@ MiWebDCRLayerVisualizationModel >> clientClasses [
 ]
 
 { #category : #building }
-MiWebDCRLayerVisualizationModel >> commonPackagesFor: elements [
-
-	| groups |
-	groups := (elements groupedBy: [ :e | 
-		           (e atScope: FamixTPackage) anyOne ])
-		          associations.
-
-	^ groups collect: [ :a | 
-		  self createPackageElement: a key with: a value ]
-]
-
-{ #category : #building }
-MiWebDCRLayerVisualizationModel >> createPackageElement: famixPackage with: elements [
-
-	^ MiLVPackageElement new
-		  model: famixPackage;
-		  children: (self createTypeElementsFor: elements);
-		  yourself
-]
-
-{ #category : #building }
-MiWebDCRLayerVisualizationModel >> createTypeElementsFor: aCollectionOfMooseEntities [
-
-	^ aCollectionOfMooseEntities collect: [ :me | 
-		  MiLVTypeElement new
-			  model: me;
-			  yourself ]
-]
-
-{ #category : #building }
 MiWebDCRLayerVisualizationModel >> descriptionBoxFor: aCollection with: aName [
 
 	^ MiLVFlowBoxNode new
@@ -295,14 +265,6 @@ MiWebDCRLayerVisualizationModel >> displayStrategy: anObject [
 MiWebDCRLayerVisualizationModel >> dtos [
 
 	^ queriesHolder DTOClasses result
-]
-
-{ #category : #building }
-MiWebDCRLayerVisualizationModel >> entitiesOf: aLayer [
-
-	^ aLayer size > 100
-		  ifTrue: [ self commonPackagesFor: aLayer ]
-		  ifFalse: [ self createTypeElementsFor: aLayer ]
 ]
 
 { #category : #building }

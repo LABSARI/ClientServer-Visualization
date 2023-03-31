@@ -1,6 +1,6 @@
 Class {
 	#name : #MiMultiLayerVisuBuilder,
-	#superclass : #MiNewVisuBuilder,
+	#superclass : #MiLayerVisualizationBuilder,
 	#instVars : [
 		'daoDict',
 		'serviceDict',
@@ -247,23 +247,13 @@ MiMultiLayerVisuBuilder >> colorFor: node [
 	entity := node rawModel.
 	entity isMooseObject ifFalse: [ ^ Color fromHexString: 'E0E0E0' ].
 	(entity isPackage and: [ self packageContainsDaoViolation: node ]) 
-		ifTrue: [ ^ daoTag color ].
+		ifTrue: [ ^ self mapModel daoTag color ].
 	(entity isPackage and: [ 
 		 (serviceDict includesKey: node children anyOne rawModel) and: [ 
 			 self packageContainsServiceViolation: node ] ]) ifTrue: [ 
 		^ serviceTag color ].
 
-	(entity isType and: [ 
-		 (mapModel sharedLayer includesKey: entity) and: [ self nodeIsShared: node ] ]) 
-		ifTrue: [ ^ Color fromHexString: '9970AB' ].
-
-	(entity isPackage and: [ 
-		 (mapModel sharedLayer includesKey: node children anyOne rawModel) and: [ 
-			 node children anySatisfy: [ :child | self nodeIsShared: child ] ] ]) 
-		ifTrue: [ ^ Color fromHexString: '9970AB' ].
-
-	(entity isPackage and: [ self packagePresentInBothSides: entity ]) 
-		ifTrue: [ ^ Color fromHexString: 'DFC27D' ].
+	
 
 
 	"mapModel shouldColor ifFalse: [ ^ Color fromHexString: '7FC6F6' ].
@@ -299,21 +289,6 @@ MiMultiLayerVisuBuilder >> initialize [
 	super initialize.
 	daoDict := Dictionary new.
 	serviceDict := Dictionary new
-]
-
-{ #category : #adding }
-MiMultiLayerVisuBuilder >> initializeFirstServerLayer [
-
-	| remoteServer |
-	mapModel serverLayers add: Dictionary new.
-	remoteServer := ((FQStringQuery
-		                  property: #name
-		                  comparator: #=
-		                  valueToCompare: 'RemoteServer') runOn:
-		                 self services anyOne rawModel mooseModel allClasses)
-		                anyOne.
-	remoteServer subclassHierarchy do: [ :sc | 
-		(mapModel serverLayers at: 1) at: sc put: (self buildNodeFromEntity: sc) ]
 ]
 
 { #category : #adding }
