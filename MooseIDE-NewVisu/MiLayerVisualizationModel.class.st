@@ -36,6 +36,15 @@ MiLayerVisualizationModel >> addDependenciesToShared [
 ]
 
 { #category : #partitioning }
+MiLayerVisualizationModel >> addDependency: valueEntity in: aDictionary for: keyEntity [
+
+	aDictionary
+		at: keyEntity
+		ifPresent: [ :collection | collection add: valueEntity ]
+		ifAbsentPut: [ OrderedCollection with: valueEntity ]
+]
+
+{ #category : #partitioning }
 MiLayerVisualizationModel >> addLayerToClientFromLevel: level [
 
 	| newLayer currentLayer hasAddedSomething |

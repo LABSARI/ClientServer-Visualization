@@ -49,15 +49,6 @@ MiWebDCRLayerVisualizationModel >> addCacheServerDependencies [
 ]
 
 { #category : #partitioning }
-MiWebDCRLayerVisualizationModel >> addDependency: valueEntity in: aDictionary for: keyEntity [
-
-	aDictionary
-		at: keyEntity
-		ifPresent: [ :collection | collection add: valueEntity ]
-		ifAbsentPut: [ OrderedCollection with: valueEntity ]
-]
-
-{ #category : #partitioning }
 MiWebDCRLayerVisualizationModel >> addLayer [
 
 	| allNewSClasses allNewCClasses |

@@ -12,40 +12,6 @@ Class {
 }
 
 { #category : #adding }
-MiMultiLayerVisuBuilder >> addDependenciesToDaoAndTag [
-
-	self
-		addDependenciesFrom: (mapModel serverLayers at: 1)
-		to: daoDict
-		execute: [ :impl :dao | 
-			dao tagWith: daoTag.
-			impl tagWith: implAndIntViolation.
-			pNodes add: (daoDict at: dao) ].
-
-	daoDict associationsDo: [ :a | 
-		(self classDependenciesFor: a key) do: [ :d | 
-			serviceDict at: d ifPresent: [ :hn | 
-				a value dependencyTo: hn.
-				pNodes add: a value ] ] ].
-	serviceDict associationsDo: [ :a | 
-		(self classDependenciesFor: a key) do: [ :d | 
-			(mapModel serverLayers at: 1) at: d ifPresent: [ :hn | 
-				a value dependencyTo: hn.
-				pNodes add: a value ] ] ]
-]
-
-{ #category : #adding }
-MiMultiLayerVisuBuilder >> addDependenciesToServicesAndTag [
-
-
-	self
-		addDependenciesFrom: (mapModel serverLayers at: 1)
-		to: serviceDict
-		execute: [ :impl :service | 
-		(service hasTag: serviceTag) ifFalse: [ service tagWith: serviceTag ] ]
-]
-
-{ #category : #adding }
 MiMultiLayerVisuBuilder >> addLayerToClientFromLevel: level [
 
 	| newDict currentDict hasAddedSomething |
@@ -309,34 +275,6 @@ MiMultiLayerVisuBuilder >> colorFor: node [
 ]
 
 { #category : #adding }
-MiMultiLayerVisuBuilder >> dao [
-
-	| sa |
-	sa := (((FQStringQuery
-		         property: #name
-		         comparator: #=
-		         valueToCompare: 'DaoAbstract') runOn:
-		        self services anyOne rawModel mooseModel allClasses) 
-		       reject: [ :c | c subclassHierarchy isEmpty ]) anyOne.
-
-	^ sa subclassHierarchy collect: [ :s | self buildNodeFromEntity: s ]
-]
-
-{ #category : #adding }
-MiMultiLayerVisuBuilder >> eServices [
-
-	| sa |
-	sa := (((FQStringQuery
-		         property: #name
-		         comparator: #=
-		         valueToCompare: 'ServiceAbstract') runOn:
-		        self services anyOne rawModel mooseModel allClasses) 
-		       reject: [ :c | c subclassHierarchy isEmpty ]) anyOne.
-
-	^ sa subclassHierarchy collect: [ :s | self buildNodeFromEntity: s ]
-]
-
-{ #category : #adding }
 MiMultiLayerVisuBuilder >> entitiesWithViolationFrom: aDict [
 
 	| v |
@@ -376,30 +314,6 @@ MiMultiLayerVisuBuilder >> initializeFirstServerLayer [
 		                anyOne.
 	remoteServer subclassHierarchy do: [ :sc | 
 		(mapModel serverLayers at: 1) at: sc put: (self buildNodeFromEntity: sc) ]
-]
-
-{ #category : #adding }
-MiMultiLayerVisuBuilder >> initializeOtherLayers [
-
-	daoTag := (self mooseModel tagNamed: 'daoViolation')
-		          color: (Color fromHexString: 'B2182B');
-		          yourself.
-	implAndIntViolation := (self mooseModel tagNamed: 'implAndIntViolation').
-	serviceTag := (self mooseModel tagNamed: 'serviceNoViolation')
-		              color: (Color fromHexString: 'EF8A62');
-		              yourself.
-	self eServices do: [ :c | serviceDict at: c rawModel put: c ].
-	self dao do: [ :c | daoDict at: c rawModel put: c ]
-]
-
-{ #category : #adding }
-MiMultiLayerVisuBuilder >> initializePartitioning [
-
-	super initializePartitioning.
-	self initializeOtherLayers.
-
-	self addDependenciesToDaoAndTag.
-	self addDependenciesToServicesAndTag
 ]
 
 { #category : #adding }
