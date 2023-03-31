@@ -67,6 +67,7 @@ MiWebDCRLayerVisualizationModel >> addLayer [
 	(allNewCClasses union: allNewSClasses) do: [ :class | self partitionClass: class ].
 	self setClientClasses.
 	self setServerClasses.
+
 	index := index + 1
 ]
 
@@ -402,6 +403,29 @@ MiWebDCRLayerVisualizationModel >> isClient:aClass [
 ]
 
 { #category : #testing }
+MiWebDCRLayerVisualizationModel >> isDTO: aFamixJavaClass [
+	^ sharedLayer includes: aFamixJavaClass 
+]
+
+{ #category : #testing }
+MiWebDCRLayerVisualizationModel >> isInClientPackage: aClass [
+
+	| testBlock |
+	testBlock := [ :p | p name = 'client' ].
+	^ (aClass allAtScope: FamixTPackage until: testBlock) anySatisfy:
+		  testBlock
+]
+
+{ #category : #testing }
+MiWebDCRLayerVisualizationModel >> isInServerPackage: aClass [
+
+	| testBlock |
+	testBlock := [ :p | p name = 'server' ].
+	^ (aClass allAtScope: FamixTPackage until: testBlock) anySatisfy:
+		  testBlock
+]
+
+{ #category : #testing }
 MiWebDCRLayerVisualizationModel >> isPurgatory:aClass [
 	^ self purgatoryLayer includes: aClass
 ]
@@ -414,6 +438,8 @@ MiWebDCRLayerVisualizationModel >> isServer:aClass [
 { #category : #partitioning }
 MiWebDCRLayerVisualizationModel >> partitionClass: aFamixJavaClass [
 
+	(self isDTO: aFamixJavaClass) ifTrue: [ ^ self ].
+	(self isPurgatory: aFamixJavaClass) ifTrue: [ ^ self ].
 	(self isClient: aFamixJavaClass) ifTrue: [ 
 		self
 			removeClass: aFamixJavaClass
@@ -429,6 +455,7 @@ MiWebDCRLayerVisualizationModel >> partitionClass: aFamixJavaClass [
 		self add: aFamixJavaClass toLayer: purgatoryLayer.
 		aFamixJavaClass tagWithName: 'purgatory' ].
 	
+
 	
 	incomingCache
 		at: aFamixJavaClass
@@ -466,7 +493,7 @@ MiWebDCRLayerVisualizationModel >> setClientClasses [
 
 { #category : #accessing }
 MiWebDCRLayerVisualizationModel >> setServerClasses [ 
-
+	serverClasses := Dictionary new.
 	self serverLayers allButFirst doWithIndex: [ :l :i | l do: [:c | serverClasses at: c put: i + 1]  ] .
 ]
 

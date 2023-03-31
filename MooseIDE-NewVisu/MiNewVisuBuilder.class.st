@@ -109,94 +109,6 @@ MiNewVisuBuilder >> buildCompositeEmptyNodeIn: shape [
 ]
 
 { #category : #building }
-MiNewVisuBuilder >> buildDescription [
-
-	| serverLayouts clientLayouts sharedGroups  |
-	"L"
-	serverLayouts := self buildLayoutsFor: mapModel serverLayers reversed: false.
-	clientLayouts := self buildLayoutsFor: mapModel clientLayers reversed: true.
-	
-	sharedGroups := mapModel sharedLayer values groupedBy: [ :n | 
-		                (n rawModel superclassHierarchy anySatisfy: [ :sc | 
-			                 sc name = 'BaseModel' or: [ 
-				                 sc name = 'BaseModelData' ] ])
-			                ifTrue: [ #dto ]
-			                ifFalse: [ 
-				                (n rawModel usesFamixTrait: FamixTEnum)
-					                ifTrue: [ #enum ]
-					                ifFalse: [ #other ] ] ].
-	sharedGroups at: #enum ifAbsentPut: [ OrderedCollection new ].
-	sharedGroups at: #other ifAbsentPut: [ OrderedCollection new ].
-	sharedGroups at: #dto ifAbsentPut: [ OrderedCollection new ].
-
-	(description := MiLVVerticalLayoutNode new)
-		gapSize: 90;
-		add: (MiLVAbstractBoxNode new
-				 name: 'Shared';
-				 layout: (MiLVFlowLayoutNode new
-						  gapSize: 80;
-						  add: (MiLVAbstractBoxNode new
-								   name:
-									   'DTOs: ' , (sharedGroups at: #dto) size asString
-									   , ' classes';
-								   layout: (MiLVFlowLayoutNode new
-										    gapSize: 80;
-										    addAll:
-											    ((self commonPackagesFor: (sharedGroups at: #dto)) 
-												     collect: [ :c | 
-													     MiLVAbstractElement new
-														     model: c;
-														     yourself ]);
-										    yourself);
-								   yourself);
-						  add: (MiLVAbstractBoxNode new
-								   name:
-									   'Enums: ' , (sharedGroups at: #enum) size asString
-									   , ' classes';
-								   layout: (MiLVFlowLayoutNode new
-										    gapSize: 80;
-										    addAll:
-											    ((self commonPackagesFor: (sharedGroups at: #enum)) 
-												     collect: [ :c | 
-													     MiLVAbstractElement new
-														     model: c;
-														     yourself ]);
-										    yourself);
-								   yourself);
-						  yourself);
-				 yourself);
-		add: (MiLVHorizontalLayoutNode new
-				 gapSize: 90;
-				 add: (MiLVAbstractBoxNode new
-						  name: 'Client';
-						  layout: (MiLVHorizontalLayoutNode new
-								   gapSize: 80;
-								   addAll: clientLayouts;
-								   yourself);
-						  yourself);
-				 add: (MiLVAbstractBoxNode new
-						  name: 'Server';
-						  layout: (MiLVHorizontalLayoutNode new
-								   gapSize: 80;
-								   addAll: serverLayouts;
-								   yourself);
-						  yourself);
-				 yourself);
-		add: (MiLVAbstractBoxNode new
-				 name: 'Purgatory: ', (mapModel purgatoryLayer values) size asString, ' classes';
-				 layout: (MiLVFlowLayoutNode new
-						  addAll:
-							  ((self commonPackagesFor: (mapModel purgatoryLayer values))
-								   collect: [ :c | 
-									   MiLVAbstractElement new
-										   model: c;
-										   yourself ]);
-						  yourself);
-				 yourself).
-	^ description
-]
-
-{ #category : #building }
 MiNewVisuBuilder >> buildNodeFromEntity: anEntity [
 
 	| node |
@@ -208,6 +120,18 @@ MiNewVisuBuilder >> buildNodeFromEntity: anEntity [
 		        collapse;
 		        yourself.
 	^ node
+]
+
+{ #category : #visiting }
+MiNewVisuBuilder >> changeColorFor: class [
+
+	((mapModel isServer: class) and: [ mapModel isInClientPackage: class ]) 
+		ifTrue: [ ^ Color fromHexString: 'F4A582' ].
+
+	((mapModel isClient: class) and: [ mapModel isInServerPackage: class ]) 
+		ifTrue: [ ^ Color fromHexString: 'F4A582' ].
+
+	^ nil
 ]
 
 { #category : #building }
@@ -273,13 +197,13 @@ MiNewVisuBuilder >> createAndStoreHNodeFor: anLVElement [
 { #category : #visiting }
 MiNewVisuBuilder >> createHNodeFor: anLVElement [
 
-	| color |
-	color := (self isInViolation: anLVElement)
-		         ifTrue: [ Color red ]
-		         ifFalse: [ nil ].
+	| color class |
+	class := anLVElement model.
+	color := self changeColorFor: class.
+
 	^ HNode new
 		  name: anLVElement name;
-		  rawModel: anLVElement model;
+		  rawModel: class;
 		  color: color;
 		  collapse;
 		  yourself
