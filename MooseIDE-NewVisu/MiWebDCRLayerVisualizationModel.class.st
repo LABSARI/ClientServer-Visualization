@@ -436,39 +436,56 @@ MiWebDCRLayerVisualizationModel >> isServer:aClass [
 ]
 
 { #category : #partitioning }
+MiWebDCRLayerVisualizationModel >> moveFromClientLayerToPurgatory: aFamixJavaClass [
+
+	self
+		removeClass: aFamixJavaClass
+		fromLayer:
+		(self clientLayers at: (clientClasses at: aFamixJavaClass)).
+	self add: aFamixJavaClass toLayer: purgatoryLayer.
+	aFamixJavaClass tagWithName: 'purgatory'
+]
+
+{ #category : #partitioning }
+MiWebDCRLayerVisualizationModel >> moveFromServerLayerToPurgatory: aFamixJavaClass [
+
+	self
+		removeClass: aFamixJavaClass
+		fromLayer:
+		(self serverLayers at: (serverClasses at: aFamixJavaClass)).
+	self add: aFamixJavaClass toLayer: purgatoryLayer.
+	aFamixJavaClass tagWithName: 'purgatory'
+]
+
+{ #category : #partitioning }
 MiWebDCRLayerVisualizationModel >> partitionClass: aFamixJavaClass [
 
 	(self isDTO: aFamixJavaClass) ifTrue: [ ^ self ].
 	(self isPurgatory: aFamixJavaClass) ifTrue: [ ^ self ].
+	
 	(self isClient: aFamixJavaClass) ifTrue: [ 
-		self
-			removeClass: aFamixJavaClass
-			fromLayer:
-			(self clientLayers at: (clientClasses at: aFamixJavaClass)).
-		self add: aFamixJavaClass toLayer: purgatoryLayer.
-		aFamixJavaClass tagWithName: 'purgatory' ].
+		self moveFromClientLayerToPurgatory: aFamixJavaClass ].
 	(self isServer: aFamixJavaClass) ifTrue: [ 
-		self
-			removeClass: aFamixJavaClass
-			fromLayer:
-			(self serverLayers at: (serverClasses at: aFamixJavaClass)).
-		self add: aFamixJavaClass toLayer: purgatoryLayer.
-		aFamixJavaClass tagWithName: 'purgatory' ].
+		self moveFromServerLayerToPurgatory: aFamixJavaClass ].
 	
+	self putClassInCorrespondingLayer: aFamixJavaClass
+]
 
-	
+{ #category : #partitioning }
+MiWebDCRLayerVisualizationModel >> putClassInCorrespondingLayer: aFamixJavaClass [
+
 	incomingCache
 		at: aFamixJavaClass
-		ifPresent: [ "Intruduit par une classe du serveur"
+		ifPresent: [ "Introduced by a server class"
 			outgoingCache
 				at: aFamixJavaClass
-				ifPresent: [ "Introduit par une classe du serveur et par une classe du client"
+				ifPresent: [ "Introduced by a server class and by a client class"
 					self add: aFamixJavaClass toLayer: purgatoryLayer.
 					aFamixJavaClass tagWithName: 'purgatory' ]
-				ifAbsent: [ "I		ntruduit uniquement par une classe du serveur" 
+				ifAbsent: [ "Introduced only by a server class" 
 					self add: aFamixJavaClass to: serverLayers layer: index + 1 ] ]
-		ifAbsent: [ "Pas intruduit par une classe du serveur"
-			(outgoingCache includesKey: aFamixJavaClass) ifTrue: [ "Introduit uniquement par une classe du client" 
+		ifAbsent: [ "Not introduced by a server class"
+			(outgoingCache includesKey: aFamixJavaClass) ifTrue: [ "Introduced only by a client class" 
 				self add: aFamixJavaClass to: clientLayers layer: index + 1 ] ]
 ]
 
