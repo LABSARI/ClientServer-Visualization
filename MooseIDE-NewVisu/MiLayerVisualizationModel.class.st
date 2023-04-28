@@ -14,10 +14,24 @@ Class {
 		'serverLayers',
 		'sharedLayer',
 		'incomingCache',
-		'outgoingCache'
+		'outgoingCache',
+		'serverClasses',
+		'displayStrategy'
 	],
 	#category : #'MooseIDE-NewVisu-Model'
 }
+
+{ #category : #adding }
+MiLayerVisualizationModel >> addCacheServerDependencies [
+
+	^ (serverLayers at: index) flatCollectAsSet: [ :class | 
+		  (self classDependenciesFor: class) select: [ :dc | 
+			  | exits |
+			  exits := incomingCache includesKey: dc.
+			  self addDependency: dc in: outgoingCache for: class.
+			  self addDependency: class in: incomingCache for: dc.
+			  (self checkIsImplementationOrService: dc) not and: [ exits not ] ] ]
+]
 
 { #category : #partitioning }
 MiLayerVisualizationModel >> addDependenciesToShared [
@@ -109,6 +123,16 @@ MiLayerVisualizationModel >> addLayerToServerFromLevel: level [
 	^ false
 ]
 
+{ #category : #testing }
+MiLayerVisualizationModel >> checkIsImplementation: aFamixJavaClass [
+
+	^ (self serverLayers at: 1) includes: aFamixJavaClass
+]
+
+{ #category : #partitioning }
+MiLayerVisualizationModel >> checkIsImplementationOrService: aClass [
+]
+
 { #category : #partitioning }
 MiLayerVisualizationModel >> classAlreadyPresent: aClass [
 
@@ -191,6 +215,18 @@ MiLayerVisualizationModel >> description: anObject [
 	^ description := anObject
 ]
 
+{ #category : #accessing }
+MiLayerVisualizationModel >> displayStrategy [
+
+	^ displayStrategy
+]
+
+{ #category : #accessing }
+MiLayerVisualizationModel >> displayStrategy: anObject [
+
+	displayStrategy := anObject
+]
+
 { #category : #building }
 MiLayerVisualizationModel >> entitiesOf: aLayer [
 
@@ -232,7 +268,10 @@ MiLayerVisualizationModel >> initialize [
 	sharedLayer := Set new.
 	purgatoryLayer := Set new.
 	serverLayers := OrderedCollection new.
-	clientLayers := OrderedCollection new
+	clientLayers := OrderedCollection new.
+	displayStrategy := MiFilterViolationStrategy new
+		                   visualizationModel: self;
+		                   yourself
 ]
 
 { #category : #initialization }
@@ -309,6 +348,13 @@ MiLayerVisualizationModel >> serverLayers [
 MiLayerVisualizationModel >> serverLayers: anObject [
 
 	serverLayers := anObject
+]
+
+{ #category : #initialization }
+MiLayerVisualizationModel >> setServerClasses [ 
+
+	serverClasses := Dictionary new.
+	self serverLayers allButFirst doWithIndex: [ :l :i | l do: [:c | serverClasses at: c put: i + 1]  ] .
 ]
 
 { #category : #initialization }

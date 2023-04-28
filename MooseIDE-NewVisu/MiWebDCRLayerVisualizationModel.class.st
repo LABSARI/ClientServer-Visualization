@@ -2,9 +2,7 @@ Class {
 	#name : #MiWebDCRLayerVisualizationModel,
 	#superclass : #MiLayerVisualizationModel,
 	#instVars : [
-		'displayStrategy',
-		'clientClasses',
-		'serverClasses'
+		'clientClasses'
 	],
 	#category : #'MooseIDE-NewVisu-Model'
 }
@@ -34,18 +32,6 @@ MiWebDCRLayerVisualizationModel >> addCacheClientDependencies [
 			  self addDependency: class in: outgoingCache for: dc.
 			(exists not and: [ incomingCache includesKey: dc ]) ifTrue: [ self tagInViolation: dc ].
 			  (self checkIsImplementationOrService: dc) not and: [ exists not ] ] ]
-]
-
-{ #category : #partitioning }
-MiWebDCRLayerVisualizationModel >> addCacheServerDependencies [
-
-	^ (serverLayers at: index) flatCollectAsSet: [ :class | 
-		  (self classDependenciesFor: class) select: [ :dc | 
-			  | exits |
-			  exits := incomingCache includesKey: dc.
-			  self addDependency: dc in: outgoingCache for: class.
-			  self addDependency: class in: incomingCache for: dc.
-			  (self checkIsImplementationOrService: dc) not and: [ exits not ] ] ]
 ]
 
 { #category : #partitioning }
@@ -213,12 +199,6 @@ MiWebDCRLayerVisualizationModel >> checkInViolation: aClass [
 	
 ]
 
-{ #category : #testing }
-MiWebDCRLayerVisualizationModel >> checkIsImplementation: aFamixJavaClass [
-
-	^ (self serverLayers at: 1) includes: aFamixJavaClass
-]
-
 { #category : #partitioning }
 MiWebDCRLayerVisualizationModel >> checkIsImplementationOrService: aClass [
 
@@ -249,18 +229,6 @@ MiWebDCRLayerVisualizationModel >> descriptionBoxFor: aCollection with: aName [
 		  yourself
 ]
 
-{ #category : #accessing }
-MiWebDCRLayerVisualizationModel >> displayStrategy [
-
-	^ displayStrategy
-]
-
-{ #category : #accessing }
-MiWebDCRLayerVisualizationModel >> displayStrategy: anObject [
-
-	displayStrategy := anObject
-]
-
 { #category : #queries }
 MiWebDCRLayerVisualizationModel >> dtos [
 
@@ -284,9 +252,7 @@ MiWebDCRLayerVisualizationModel >> initialize [
 
 	super initialize.
 	queriesHolder := MiDQueriesHolder new.
-	displayStrategy := MiFilterViolationStrategy new
-		                   visualizationModel: self;
-		                   yourself.
+	
 		
 	clientClasses := Dictionary new.
 	serverClasses := Dictionary new.
@@ -459,12 +425,6 @@ MiWebDCRLayerVisualizationModel >> setClientClasses [
 
 	self clientLayers allButFirst doWithIndex: [ :l :i | l do: [:c | clientClasses at: c put: i + 1 ]  ] .
 
-]
-
-{ #category : #accessing }
-MiWebDCRLayerVisualizationModel >> setServerClasses [ 
-	serverClasses := Dictionary new.
-	self serverLayers allButFirst doWithIndex: [ :l :i | l do: [:c | serverClasses at: c put: i + 1]  ] .
 ]
 
 { #category : #util }

@@ -3,8 +3,7 @@ Class {
 	#superclass : #MiLayerVisualizationBuilder,
 	#instVars : [
 		'highlightShapes',
-		'index',
-		'description'
+		'index'
 	],
 	#category : #'MooseIDE-NewVisu-Roassal-builder'
 }
@@ -260,15 +259,4 @@ MiNewVisuBuilder >> shapeFor: node [
 		when: HNodeChangedEvent do: [ :evt | self rebuildShape: shape ].
 	shapes add: shape.
 	^ shape
-]
-
-{ #category : #building }
-MiNewVisuBuilder >> updateBuild [
-
-	self container shapes do: #remove.
-	description := mapModel buildDescription.
-	self visit: description.
-"	rootNode hideAllLinks."
-	self renderLinesIn: self container.
-	self container signalUpdate
 ]

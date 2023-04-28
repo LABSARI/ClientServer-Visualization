@@ -53,6 +53,13 @@ MiFilterViolationStrategy >> fetchViolatingClients [
 ]
 
 { #category : #filtering }
+MiFilterViolationStrategy >> fetchViolatingDaos [
+
+	^ visualizationModel daoLayer select: [ :dao | 
+		  dao hasTagNamed: 'daoViolation' ]
+]
+
+{ #category : #filtering }
 MiFilterViolationStrategy >> fetchViolatingEntities [
 	
 	| incomingCache serverLayer violatingServer |
@@ -79,4 +86,11 @@ MiFilterViolationStrategy >> fetchViolatingServers [
 "	violatingServer flatten do: [ :vs | vs tagWithName: 'ServerViolation' ]."
 
 	^ violatingServer
+]
+
+{ #category : #filtering }
+MiFilterViolationStrategy >> fetchViolatingServices [
+
+	^ visualizationModel serviceLayer reject: [ :service | 
+		  service hasTagNamed: 'serviceNoViolation' ]
 ]

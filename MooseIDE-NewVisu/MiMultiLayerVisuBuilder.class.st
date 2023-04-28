@@ -53,46 +53,6 @@ MiMultiLayerVisuBuilder >> addLayerToClientFromLevel: level [
 ]
 
 { #category : #adding }
-MiMultiLayerVisuBuilder >> addLayerToServerFromLevel: level [
-
-	| hasAddedSomething newDict currentDict |
-	hasAddedSomething := false.
-	newDict := Dictionary new.
-	currentDict := mapModel serverLayers at: level.
-	currentDict associationsDo: [ :assoc | 
-		| class hNode |
-		class := assoc key.
-		hNode := assoc value.
-		(self classDependenciesFor: class) do: [ :d | 
-			| response |
-			response := self classAlreadyPresent: d.
-			response = #dao ifTrue: [ 
-				| n |
-				n := daoDict at: d.
-				hNode dependencyTo: n.
-				d tagWith: daoTag.
-				pNodes add: n ].
-			response = #service ifTrue: [ 
-				hNode dependencyTo: (serviceDict at: d) ].
-			response = #free ifTrue: [ 
-				| newNode |
-				newNode := self buildNodeFromEntity: d.
-				hNode dependencyTo: newNode.
-				newDict at: d put: newNode.
-				hasAddedSomething := true ].
-			response = #client ifTrue: [ 
-				(self indexOf: d in: mapModel clientLayers) > 1 ifTrue: [ 
-					level = 1 ifTrue: [ class tagWith: implAndIntViolation ].
-					hNode dependencyTo: (self moveClass: d toSharedfrom: mapModel clientLayers) ] ].
-			response = #shared ifTrue: [ "hNode dependencyTo: (sharedDict at: d)"
-				 ] ] ].
-	hasAddedSomething ifTrue: [ 
-		mapModel serverLayers add: newDict.
-		^ true ].
-	^ false
-]
-
-{ #category : #adding }
 MiMultiLayerVisuBuilder >> buildDescription [
 
 	| serverLayouts clientLayouts |

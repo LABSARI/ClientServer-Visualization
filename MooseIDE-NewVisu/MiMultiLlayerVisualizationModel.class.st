@@ -57,14 +57,60 @@ MiMultiLlayerVisualizationModel >> addDependenciesToServicesAndTag [
 				service tagWith: serviceTag ] ]
 ]
 
+{ #category : #adding }
+MiMultiLlayerVisualizationModel >> addLayer [
+
+	| allNewSClasses |
+	
+	allNewSClasses := self addCacheServerDependencies.
+	self setServerClasses.
+
+	index := index + 1
+]
+
+{ #category : #adding }
+MiMultiLlayerVisualizationModel >> addLayerToServerFromLevel: level [
+
+	| hasAddedSomething newDict currentDict |
+	hasAddedSomething := false.
+	newDict := Dictionary new.
+	currentDict := self serverLayers at: level.
+	currentDict associationsDo: [ :assoc | 
+		| class hNode |
+		class := assoc key.
+		hNode := assoc value.
+		(self classDependenciesFor: class) do: [ :d | 
+			| response |
+			response := self classAlreadyPresent: d.
+			response = #dao ifTrue: [ 
+				| n |
+				n := self dao at: d.
+				d tagWith: daoTag].
+			response = #service ifTrue: [ 
+				hNode dependencyTo: (self eServices at: d) ].
+			response = #free ifTrue: [ 
+				"| newNode |
+				newNode := self buildNodeFromEntity: d.
+				hNode dependencyTo: newNode.
+				newDict at: d put: newNode.
+				hasAddedSomething := true" ].
+			response = #shared ifTrue: [ "hNode dependencyTo: (sharedDict at: d)"
+				 ] ] ].
+	hasAddedSomething ifTrue: [ 
+		self serverLayers add: newDict.
+		^ true ].
+	^ false
+]
+
 { #category : #building }
 MiMultiLlayerVisualizationModel >> buildDaoLayer [
-
+	| daosToDisplay |
+	daosToDisplay := displayStrategy fetchViolatingDaos.
 	^ MiLVFlowBoxNode new
 		  dashedBorder;
-		  name: 'Dao: ' , daoLayer size asString , ' classes';
+		  name: 'Dao: ' , daosToDisplay size asString , ' classes';
 		  gapSize: 80;
-		  addAll: (self entitiesOf: daoLayer);
+		  addAll: (self entitiesOf: daosToDisplay);
 		  yourself
 ]
 
@@ -83,23 +129,29 @@ MiMultiLlayerVisualizationModel >> buildDescription [
 { #category : #building }
 MiMultiLlayerVisualizationModel >> buildServiceLayer [
 
+	| serviceToDisplay |
+	serviceToDisplay := displayStrategy fetchViolatingServices.
 	^ MiLVFlowBoxNode new
 		  dashedBorder;
-		  name: 'Service: ' , serviceLayer size asString , ' classes';
+		  name: 'Service: ' , serviceToDisplay size asString , ' classes';
 		  gapSize: 80;
-		  addAll: (self entitiesOf: serviceLayer);
+		  addAll: (self entitiesOf: serviceToDisplay);
 		  yourself
 ]
 
 { #category : #building }
 MiMultiLlayerVisualizationModel >> buildUCLayer [
-
 	^ MiLVFlowBoxNode new
 		  dashedBorder;
 		  name: 'UC: ' , (serverLayers at: 1) size asString , ' classes';
 		  gapSize: 80;
 		  addAll: (self entitiesOf: (serverLayers at: 1));
 		  yourself
+]
+
+{ #category : #partitioning }
+MiMultiLlayerVisualizationModel >> checkIsImplementationOrService: aClass [
+	^ self checkIsImplementation: aClass 
 ]
 
 { #category : #queries }
@@ -113,6 +165,18 @@ MiMultiLlayerVisualizationModel >> dao [
 		       reject: [ :c | c subclassHierarchy isEmpty ]) anyOne.
 
 	^ sa subclassHierarchy
+]
+
+{ #category : #accessing }
+MiMultiLlayerVisualizationModel >> daoLayer [
+
+	^ daoLayer
+]
+
+{ #category : #accessing }
+MiMultiLlayerVisualizationModel >> daoLayer: anObject [
+
+	daoLayer := anObject
 ]
 
 { #category : #accessing }
@@ -159,8 +223,7 @@ MiMultiLlayerVisualizationModel >> initializeFirstServerLayer [
 		                  comparator: #=
 		                  valueToCompare: 'RemoteServer') runOn:
 		                 mooseModel allClasses) anyOne.
-
-	(self serverLayers at: 1) addAll: remoteServer subclassHierarchy
+	self serverLayers at: 1 put: remoteServer subclassHierarchy
 ]
 
 { #category : #adding }
@@ -183,13 +246,25 @@ MiMultiLlayerVisualizationModel >> initializePartitioning [
 
 	self initializeFirstServerLayer.
 	self initializeOtherLayers.
-
 	self addDependenciesToDaoAndTag.
-	self addDependenciesToServicesAndTag
+	self addDependenciesToServicesAndTag.
+	index := 1
 ]
 
 { #category : #accessing }
 MiMultiLlayerVisualizationModel >> mooseModel: aMooseModel [
 
 	mooseModel := aMooseModel
+]
+
+{ #category : #accessing }
+MiMultiLlayerVisualizationModel >> serviceLayer [
+
+	^ serviceLayer
+]
+
+{ #category : #accessing }
+MiMultiLlayerVisualizationModel >> serviceLayer: anObject [
+
+	serviceLayer := anObject
 ]

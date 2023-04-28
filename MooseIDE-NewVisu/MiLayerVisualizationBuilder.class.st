@@ -3,7 +3,8 @@ Class {
 	#superclass : #HSimpleVisualizationBuilder,
 	#instVars : [
 		'mapModel',
-		'visitHNodeCache'
+		'visitHNodeCache',
+		'description'
 	],
 	#category : #'MooseIDE-NewVisu-Roassal-builder'
 }
@@ -157,6 +158,16 @@ MiLayerVisualizationBuilder >> rsShapeFor: childrenNodes withRSLayout: aRoassalL
 	aRoassalLayout on: group.
 
 	^ group asShape
+]
+
+{ #category : #building }
+MiLayerVisualizationBuilder >> updateBuild [
+	self container shapes do: #remove.
+	description := mapModel buildDescription.
+	self visit: description.
+"	rootNode hideAllLinks."
+	self renderLinesIn: self container.
+	self container signalUpdate
 ]
 
 { #category : #visiting }
