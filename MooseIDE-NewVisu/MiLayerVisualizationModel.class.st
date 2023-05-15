@@ -227,6 +227,12 @@ MiLayerVisualizationModel >> displayStrategy: anObject [
 	displayStrategy := anObject
 ]
 
+{ #category : #accessing }
+MiLayerVisualizationModel >> entities [
+
+	^ nil
+]
+
 { #category : #building }
 MiLayerVisualizationModel >> entitiesOf: aLayer [
 

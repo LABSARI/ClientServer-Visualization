@@ -40,7 +40,7 @@ MiLayerVisualizationBrowser >> canFollowEntity: anObject [
 { #category : #actions }
 MiLayerVisualizationBrowser >> followEntity: anEntity [
 
-	model followEntity: anEntity
+	specModel followEntity: anEntity
 ]
 
 { #category : #testing }
@@ -91,5 +91,5 @@ MiLayerVisualizationBrowser >> runVisualization [
 { #category : #testing }
 MiLayerVisualizationBrowser >> settings [
 
-	model settings open
+	specModel settings open
 ]

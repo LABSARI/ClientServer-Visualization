@@ -35,6 +35,18 @@ MiWebDCRLayerVisualizationModel >> addCacheClientDependencies [
 ]
 
 { #category : #partitioning }
+MiWebDCRLayerVisualizationModel >> addCacheServerDependencies [
+
+	^ (serverLayers at: index) flatCollectAsSet: [ :class | 
+		  (self classDependenciesFor: class) select: [ :dc | 
+			  | exits |
+			  exits := incomingCache includesKey: dc.
+			  self addDependency: dc in: outgoingCache for: class.
+			  self addDependency: class in: incomingCache for: dc.
+			  (self checkIsImplementationOrService: dc) not and: [ exits not ] ] ]
+]
+
+{ #category : #partitioning }
 MiWebDCRLayerVisualizationModel >> addLayer [
 
 	| allNewSClasses allNewCClasses |
@@ -148,7 +160,7 @@ MiWebDCRLayerVisualizationModel >> buildSharedLayer [
 
 	dtoSize := dtoUsedByClient size + dtoUsedByServer size
 	           + dtoNotShared size.
-
+	
 	dtoBox := MiLVFlowBoxNode new
 		          dashedBorder;
 		          name:
@@ -177,19 +189,6 @@ MiWebDCRLayerVisualizationModel >> buildSharedLayer [
 		  name: 'Shared';
 		  gapSize: 80;
 		  add: dtoBox;
-		  add: (MiLVFlowBoxNode new
-				   dashedBorder;
-				   name:
-					   'Enums: ' , (sharedGroups at: #enum) size asString
-					   , ' classes';
-				   gapSize: 80;
-				   addAll:
-					   ((self commonPackagesFor: (sharedGroups at: #enum)) collect: [ 
-							    :c | 
-							    MiLVAbstractElement new
-								    model: c;
-								    yourself ]);
-				   yourself);
 		  yourself
 ]
 
@@ -197,6 +196,12 @@ MiWebDCRLayerVisualizationModel >> buildSharedLayer [
 MiWebDCRLayerVisualizationModel >> checkInViolation: aClass [
 
 	
+]
+
+{ #category : #partitioning }
+MiWebDCRLayerVisualizationModel >> checkIsImplementation: aFamixJavaClass [
+
+	^ (self serverLayers at: 1) includes: aFamixJavaClass
 ]
 
 { #category : #partitioning }
@@ -218,6 +223,36 @@ MiWebDCRLayerVisualizationModel >> clientClasses [
 	^ clientClasses 
 ]
 
+{ #category : #accessing }
+MiWebDCRLayerVisualizationModel >> commonPackagesFor: elements [
+
+	| groups |
+	groups := (elements groupedBy: [ :e | 
+		           (e atScope: FamixTPackage) anyOne ])
+		          associations.
+
+	^ groups collect: [ :a | 
+		  self createPackageElement: a key with: a value ]
+]
+
+{ #category : #accessing }
+MiWebDCRLayerVisualizationModel >> createPackageElement: famixPackage with: elements [
+
+	^ MiLVPackageElement new
+		  model: famixPackage;
+		  children: (self createTypeElementsFor: elements);
+		  yourself
+]
+
+{ #category : #accessing }
+MiWebDCRLayerVisualizationModel >> createTypeElementsFor: aCollectionOfMooseEntities [
+
+	^ aCollectionOfMooseEntities collect: [ :me | 
+		  MiLVTypeElement new
+			  model: me;
+			  yourself ]
+]
+
 { #category : #building }
 MiWebDCRLayerVisualizationModel >> descriptionBoxFor: aCollection with: aName [
 
@@ -229,10 +264,30 @@ MiWebDCRLayerVisualizationModel >> descriptionBoxFor: aCollection with: aName [
 		  yourself
 ]
 
+{ #category : #building }
+MiWebDCRLayerVisualizationModel >> displayStrategy [
+
+	^ displayStrategy
+]
+
+{ #category : #building }
+MiWebDCRLayerVisualizationModel >> displayStrategy: anObject [
+
+	displayStrategy := anObject
+]
+
 { #category : #queries }
 MiWebDCRLayerVisualizationModel >> dtos [
 
 	^ queriesHolder DTOClasses result
+]
+
+{ #category : #building }
+MiWebDCRLayerVisualizationModel >> entitiesOf: aLayer [
+
+	^ aLayer size > 100
+		  ifTrue: [ self commonPackagesFor: aLayer ]
+		  ifFalse: [ self createTypeElementsFor: aLayer ]
 ]
 
 { #category : #building }
@@ -252,7 +307,9 @@ MiWebDCRLayerVisualizationModel >> initialize [
 
 	super initialize.
 	queriesHolder := MiDQueriesHolder new.
-	
+	displayStrategy := MiFilterViolationStrategy new
+		                   visualizationModel: self;
+		                   yourself.
 		
 	clientClasses := Dictionary new.
 	serverClasses := Dictionary new.
@@ -425,6 +482,12 @@ MiWebDCRLayerVisualizationModel >> setClientClasses [
 
 	self clientLayers allButFirst doWithIndex: [ :l :i | l do: [:c | clientClasses at: c put: i + 1 ]  ] .
 
+]
+
+{ #category : #partitioning }
+MiWebDCRLayerVisualizationModel >> setServerClasses [ 
+	serverClasses := Dictionary new.
+	self serverLayers allButFirst doWithIndex: [ :l :i | l do: [:c | serverClasses at: c put: i + 1]  ] .
 ]
 
 { #category : #util }

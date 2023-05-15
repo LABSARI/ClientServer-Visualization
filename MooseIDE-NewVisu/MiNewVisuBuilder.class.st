@@ -156,15 +156,6 @@ MiNewVisuBuilder >> highlightableLinkedShapes [
 			                     yourself ]
 ]
 
-{ #category : #initialization }
-MiNewVisuBuilder >> initialize [
-
-	super initialize.
-	self nodeStyler fontSize: 16.
-	self nodeStyler popup text: [ :e | 
-		e rawModel mooseName copyReplaceAll: '::' with: '.' ]
-]
-
 { #category : #visiting }
 MiNewVisuBuilder >> isInViolation: anLVElement [
 
@@ -185,7 +176,7 @@ MiNewVisuBuilder >> nodeAnnouncer [
 
 	baseNode ifNotNil: [ ^ baseNode announcer ].
 	baseNode := RSComposite new
-		            @ self nodeStyler popup;
+		            @ self popup;
 		            @
 			            (HGhostDraggable new color:
 					             Smalltalk ui theme caretColor);
@@ -194,9 +185,7 @@ MiNewVisuBuilder >> nodeAnnouncer [
 		            @ self highlightableLinkedShapes;
 		            @ RSNodeOnTopWhenPositionChanged new;
 		            @ HUpdateSelectionBox new;
-		            @
-			            (HResizeParentWhenChildMoves new nodeStyler:
-					             self nodeStyler);
+		            @ HResizeParentWhenChildMoves new;
 		            yourself.
 	^ baseNode announcer
 ]
@@ -236,27 +225,4 @@ MiNewVisuBuilder >> services [
 	mapModel clientLayers ifEmpty: [ 
 		mapModel clientLayers add: (Dictionary sizeFor: self elements size) ].
 	^ mapModel clientLayers at: 1
-]
-
-{ #category : #building }
-MiNewVisuBuilder >> shapeFor: node [
-
-	| shape |
-	shape := RSComposite new
-		         model: node;
-		         color: Color transparent;
-		         announcer: self nodeAnnouncer;
-		         yourself.
-
-	(node isExpanded and: [ node hasChildren ])
-		ifTrue: [ self buildCompositeFullNodeIn: shape ]
-		ifFalse: [ self buildCompositeEmptyNodeIn: shape ].
-	node
-		removeInteractionIfPresent: self class;
-		when: HNodeAddedEvent do: [ :evt | self rebuildRootShape: shape ];
-		when: HCollapseEvent do: [ :evt | self rebuildShape: shape ];
-		when: HExpandEvent do: [ :evt | self rebuildRootShape: shape ];
-		when: HNodeChangedEvent do: [ :evt | self rebuildShape: shape ].
-	shapes add: shape.
-	^ shape
 ]
