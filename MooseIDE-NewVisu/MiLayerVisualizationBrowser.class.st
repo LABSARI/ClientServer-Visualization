@@ -28,7 +28,7 @@ MiLayerVisualizationBrowser class >> title [
 { #category : #'as yet unclassified' }
 MiLayerVisualizationBrowser class >> visualizationBuilder [
 
-	^ MiNewVisuBuilder new
+	^ MiLayerVisualizationBuilder new
 ]
 
 { #category : #testing }

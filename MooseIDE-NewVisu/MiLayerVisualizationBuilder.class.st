@@ -14,6 +14,7 @@ MiLayerVisualizationBuilder >> addDependenciesTo: anHNode [
 
 	(mapModel purgatoryLayer includes: anHNode rawModel) ifFalse: [ 
 		^ self ].
+	
 	mapModel incomingCache at: anHNode rawModel ifPresent: [ :c | 
 		c do: [ :i | 
 			visitHNodeCache
@@ -42,19 +43,7 @@ MiLayerVisualizationBuilder >> addNextLevelButton [
 	next when: RSMouseClick do: [ 
 		mapModel addLayer.
 
-		self updateBuild]
-]
-
-{ #category : #building }
-MiLayerVisualizationBuilder >> borderForSet [
-
-	^ RSBorder new
-		  width: 3;
-		  capSquare;
-		  joinMiter;
-		  color: Smalltalk ui theme textColor;
-		  dashArray: #(5 10);
-		  yourself
+		self updateBuild ]
 ]
 
 { #category : #building }
@@ -66,8 +55,8 @@ MiLayerVisualizationBuilder >> build [
 
 	self addNextLevelButton.
 
-	self renderLinesIn: self container.
-	self container @ self menuInteraction
+	self renderIn: self container.
+	^ self container
 ]
 
 { #category : #visiting }
@@ -97,7 +86,7 @@ MiLayerVisualizationBuilder >> createHNodeFor: anLVElement [
 	^ HNode new
 		  name: anLVElement name;
 		  rawModel: class;
-		  color: color;
+		  color: (Color fromHexString: '80B1D3');
 		  collapse;
 		  yourself
 ]
@@ -111,21 +100,6 @@ MiLayerVisualizationBuilder >> createHNodeForPackage: aPackageElement [
 		  yourself
 ]
 
-{ #category : #building }
-MiLayerVisualizationBuilder >> labelFromString: aString [
-
-	^ RSComposite new
-		  add: (RSLabel new
-				   text: aString;
-				   fontSize: 25;
-				   color: Color black;
-				   yourself);
-		  adjustToChildren;
-		  padding: 10 @ 0;
-		  color: Color transparent;
-		  yourself
-]
-
 { #category : #accessing }
 MiLayerVisualizationBuilder >> mapModel [
 
@@ -136,14 +110,6 @@ MiLayerVisualizationBuilder >> mapModel [
 MiLayerVisualizationBuilder >> mapModel: anObject [
 
 	mapModel := anObject
-]
-
-{ #category : #visiting }
-MiLayerVisualizationBuilder >> roassalBorderFor: aSymbol [
-
-	aSymbol = #dashed ifTrue: [ ^ self borderForSet ].
-	aSymbol = #line ifTrue: [ ^ nil ].
-	aSymbol = #without ifTrue: [ ^ nil ]
 ]
 
 { #category : #visiting }
@@ -162,50 +128,38 @@ MiLayerVisualizationBuilder >> rsShapeFor: childrenNodes withRSLayout: aRoassalL
 
 { #category : #building }
 MiLayerVisualizationBuilder >> updateBuild [
+
 	self container shapes do: #remove.
 	description := mapModel buildDescription.
 	self visit: description.
-"	rootNode hideAllLinks."
-	self renderLinesIn: self container.
-	self container signalUpdate
+
+	self renderIn: self container.
+	^ self container
 ]
 
 { #category : #visiting }
 MiLayerVisualizationBuilder >> visit: aVisualizationModel [
 
-	| rootShape |
-	shapes := OrderedCollection new.
-	rootNode := HNode new.
 	visitHNodeCache := Dictionary new.
-	rootShape := aVisualizationModel acceptVisitor: self.
-	self container add: rootShape.
-	self container schildren: shapes
+	rootNode := aVisualizationModel acceptVisitor: self
 ]
 
 { #category : #visiting }
 MiLayerVisualizationBuilder >> visitBox: aMiNVBoxNode withRSLayout: aRoassalLayout [
 
-	| shape label |
-	label := self labelFromString: aMiNVBoxNode name.
-
-	shape := RSComposite new.
-
-	shape add:
-		(self rsShapeFor: aMiNVBoxNode children withRSLayout: aRoassalLayout).
-
-	shape
-		adjustToChildren;
-		border: (self roassalBorderFor: aMiNVBoxNode borderStyle);
-		padding: 50;
-		color: aMiNVBoxNode backgroundColor.
-	shape add: label.
-
-	RSLocation new
-		left;
-		top;
-		inner;
-		move: label on: shape baseRectangle.
-	^ shape
+	| hNode |
+	hNode := HNode new
+		         name: aMiNVBoxNode name;
+		         layout: aRoassalLayout;
+		         style: (HBorderAndTitleStyle new
+				          borderDashArray: #( 5 10 );
+				          yourself);
+		         color: Color transparent;
+		         children:
+		         (aMiNVBoxNode children collect: [ :c | 
+			          c acceptVisitor: self ]);
+		         yourself.
+	^ hNode
 ]
 
 { #category : #visiting }
@@ -227,14 +181,7 @@ MiLayerVisualizationBuilder >> visitHorizontalBox: aMiNVBoxNode [
 { #category : #visiting }
 MiLayerVisualizationBuilder >> visitPackageElement: aPackageElement [
 
-	| hNode shape |
-	hNode := self createHNodeForPackage: aPackageElement.
-	rootNode add: hNode.
-	shape := (self shapeFor: hNode)
-		         sparent: self container;
-		         yourself.
-	shapes add: shape.
-	^ shape
+	^ self createHNodeForPackage: aPackageElement
 ]
 
 { #category : #visiting }
@@ -254,14 +201,7 @@ MiLayerVisualizationBuilder >> visitQueryNode: aMiNVQueryNode [
 { #category : #visiting }
 MiLayerVisualizationBuilder >> visitTypeElement: aMiLVTypeElement [
 
-	| hNode shape |
-	hNode := self createAndStoreHNodeFor: aMiLVTypeElement.
-	rootNode add: hNode.
-	shape := (self shapeFor: hNode)
-		         sparent: self container;
-		         yourself.
-	shapes add: shape.
-	^ shape
+	^ self createAndStoreHNodeFor: aMiLVTypeElement
 ]
 
 { #category : #visiting }

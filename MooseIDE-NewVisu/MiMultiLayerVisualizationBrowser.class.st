@@ -13,7 +13,7 @@ MiMultiLayerVisualizationBrowser class >> newModel [
 { #category : #'as yet unclassified' }
 MiMultiLayerVisualizationBrowser class >> visualizationBuilder [
 
-	^ MiMultiLayerVisuBuilder new
+	^ MiLayerVisualizationBuilder new
 ]
 
 { #category : #visiting }
