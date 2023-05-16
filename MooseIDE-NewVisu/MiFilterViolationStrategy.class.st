@@ -1,6 +1,6 @@
 Class {
 	#name : #MiFilterViolationStrategy,
-	#superclass : #MiAbstractDisplayStrategy,
+	#superclass : #MiLayerDisplayStrategy,
 	#category : #'MooseIDE-NewVisu-Strategy'
 }
 
@@ -69,25 +69,6 @@ MiFilterViolationStrategy >> fetchViolatingClients [
 ]
 
 { #category : #filtering }
-MiFilterViolationStrategy >> fetchViolatingDaos [
-
-	^ visualizationModel daoLayer select: [ :dao | 
-		  dao hasTagNamed: 'daoViolation' ]
-]
-
-{ #category : #filtering }
-MiFilterViolationStrategy >> fetchViolatingEntities [
-	
-	| incomingCache serverLayer violatingServer |
-	incomingCache := visualizationModel incomingCache.
-	serverLayer := visualizationModel serverLayers asSet flatten.
-	violatingServer := Set new.
-	
-	visualizationModel purgatoryLayer do: [ :pc |  violatingServer addAll: ((incomingCache at: pc) intersection: serverLayer)].
-	violatingServer do: [ :vs | vs tagWithName: 'ServerViolation'  ]
-]
-
-{ #category : #filtering }
 MiFilterViolationStrategy >> fetchViolatingServers [
 
 	| incomingCache  violatingServer |
@@ -105,8 +86,7 @@ MiFilterViolationStrategy >> fetchViolatingServers [
 ]
 
 { #category : #filtering }
-MiFilterViolationStrategy >> fetchViolatingServices [
+MiFilterViolationStrategy >> shouldDisplaySharedDTOs [
 
-	^ visualizationModel serviceLayer reject: [ :service | 
-		  service hasTagNamed: 'serviceNoViolation' ]
+	^ false
 ]

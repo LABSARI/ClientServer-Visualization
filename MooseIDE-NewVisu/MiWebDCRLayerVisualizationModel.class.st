@@ -32,6 +32,7 @@ MiWebDCRLayerVisualizationModel >> addCacheClientDependencies [
 			  self addDependency: class in: outgoingCache for: dc.
 			(exists not and: [ incomingCache includesKey: dc ]) ifTrue: [ self tagInViolation: dc ].
 			  (self checkIsImplementationOrService: dc) not and: [ exists not ] ] ]
+	
 ]
 
 { #category : #partitioning }
@@ -72,6 +73,36 @@ MiWebDCRLayerVisualizationModel >> buildDescription [
 		add: self buildMainLayer;
 		add: self buildPurgatoryLayer.
 	^ description
+]
+
+{ #category : #building }
+MiWebDCRLayerVisualizationModel >> buildDescriptionForDTOs [
+
+	| dtoDict dtoUsedByClient dtoUsedByServer dtoNotShared dtoBox |
+	dtoDict := displayStrategy fetchNotSharedDTOs.
+	dtoUsedByClient := self createTypeElementsFor: (dtoDict at: #client).
+	dtoUsedByServer := self createTypeElementsFor: (dtoDict at: #server).
+	dtoNotShared := self createTypeElementsFor: (dtoDict at: #nothing).
+
+	dtoBox := self createDTOBox.
+	dtoUsedByClient ifNotEmpty: [ 
+		dtoBox add:
+			(self
+				 descriptionBoxFor: dtoUsedByClient
+				 with: 'Used only by client: ') ].
+
+	dtoUsedByServer ifNotEmpty: [ 
+		dtoBox add:
+			(self
+				 descriptionBoxFor: dtoUsedByServer
+				 with: 'Used only by server: ') ].
+
+	dtoNotShared ifNotEmpty: [ 
+		dtoBox add:
+			(self descriptionBoxFor: dtoNotShared with: 'Not shared :') ].
+
+
+	^ dtoBox
 ]
 
 { #category : #building }
@@ -148,41 +179,14 @@ MiWebDCRLayerVisualizationModel >> buildPurgatoryLayer [
 { #category : #building }
 MiWebDCRLayerVisualizationModel >> buildSharedLayer [
 
-	| sharedGroups dtoDict dtoUsedByClient dtoUsedByServer dtoNotShared dtoSize dtoBox |
-	sharedGroups := Dictionary new.
-	sharedGroups at: #dto put: sharedLayer.
-	sharedGroups at: #enum put: #(  ).
+	| dtoBox |
+	displayStrategy shouldDisplaySharedDTOs ifFalse: [ 
+		^ self buildDescriptionForDTOs ].
+	dtoBox := self createDTOBox.
 
-	dtoDict := displayStrategy fetchNotSharedDTOs.
-	dtoUsedByClient := self createTypeElementsFor: (dtoDict at: #client).
-	dtoUsedByServer := self createTypeElementsFor: (dtoDict at: #server).
-	dtoNotShared := self createTypeElementsFor: (dtoDict at: #nothing).
+	sharedLayer ifNotEmpty: [ 
+		dtoBox addAll: (self createTypeElementsFor: sharedLayer) ].
 
-	dtoSize := dtoUsedByClient size + dtoUsedByServer size
-	           + dtoNotShared size.
-	
-	dtoBox := MiLVFlowBoxNode new
-		          dashedBorder;
-		          name:
-			          'DTOs: ' , dtoSize asString , '/'
-			          , sharedLayer size asString , ' classes';
-		          gapSize: 80;
-		          yourself.
-	dtoUsedByClient ifNotEmpty: [ 
-		dtoBox add:
-			(self
-				 descriptionBoxFor: dtoUsedByClient
-				 with: 'Used only by client: ') ].
-
-	dtoUsedByServer ifNotEmpty: [ 
-		dtoBox add:
-			(self
-				 descriptionBoxFor: dtoUsedByServer
-				 with: 'Used only by server: ') ].
-
-	dtoNotShared ifNotEmpty: [ 
-		dtoBox add:
-			(self descriptionBoxFor: dtoNotShared with: 'Not shared :') ].
 
 	^ MiLVHorizontalBoxNode new
 		  dashedBorder;
@@ -233,6 +237,16 @@ MiWebDCRLayerVisualizationModel >> commonPackagesFor: elements [
 
 	^ groups collect: [ :a | 
 		  self createPackageElement: a key with: a value ]
+]
+
+{ #category : #building }
+MiWebDCRLayerVisualizationModel >> createDTOBox [
+
+	^ MiLVFlowBoxNode new
+		  dashedBorder;
+		  name: 'DTOs: ' , sharedLayer size asString , ' classes';
+		  gapSize: 80;
+		  yourself
 ]
 
 { #category : #accessing }

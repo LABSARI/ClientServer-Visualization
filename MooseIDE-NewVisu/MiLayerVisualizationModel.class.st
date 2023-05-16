@@ -274,10 +274,7 @@ MiLayerVisualizationModel >> initialize [
 	sharedLayer := Set new.
 	purgatoryLayer := Set new.
 	serverLayers := OrderedCollection new.
-	clientLayers := OrderedCollection new.
-	displayStrategy := MiFilterViolationStrategy new
-		                   visualizationModel: self;
-		                   yourself
+	clientLayers := OrderedCollection new
 ]
 
 { #category : #initialization }

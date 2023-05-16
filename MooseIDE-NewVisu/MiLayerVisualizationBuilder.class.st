@@ -12,25 +12,25 @@ Class {
 { #category : #visiting }
 MiLayerVisualizationBuilder >> addDependenciesTo: anHNode [
 
-	(mapModel purgatoryLayer includes: anHNode rawModel) ifFalse: [ 
-		^ self ].
-	
-	mapModel incomingCache at: anHNode rawModel ifPresent: [ :c | 
-		c do: [ :i | 
+	| class |
+	class := anHNode rawModel.
+	(class allProviders collectAsSet: [ :p | mapModel rootClass: p ]) 
+		do: [ :c | 
 			visitHNodeCache
-				at: i
-				ifPresent: [ :node | node dependencyTo: anHNode ] ] ].
-	mapModel outgoingCache at: anHNode rawModel ifPresent: [ :c | 
-		c do: [ :i | 
-			visitHNodeCache
-				at: i
-				ifPresent: [ :node | anHNode dependencyTo: node ] ] ]
+				at: c
+				ifPresent: [ :node | anHNode dependencyTo: node ] ].
+	(class allClients collectAsSet: [ :client | 
+		 mapModel rootClass: client ]) do: [ :c | 
+		visitHNodeCache
+			at: c
+			ifPresent: [ :node | node dependencyTo: anHNode ] ]
 ]
 
 { #category : #building }
 MiLayerVisualizationBuilder >> addNextLevelButton [
 
 	| next |
+	
 	next := RSLabel new
 		        fontSize: 20;
 		        text: 'Add level';
@@ -39,10 +39,11 @@ MiLayerVisualizationBuilder >> addNextLevelButton [
 
 	next translateBy: 55 @ 15.
 	self container add: next.
+	
 	next setAsFixed.
+	
 	next when: RSMouseClick do: [ 
 		mapModel addLayer.
-
 		self updateBuild ]
 ]
 

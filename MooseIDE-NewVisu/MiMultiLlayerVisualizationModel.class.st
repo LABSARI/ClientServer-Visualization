@@ -60,9 +60,11 @@ MiMultiLlayerVisualizationModel >> addDependenciesToServicesAndTag [
 { #category : #adding }
 MiMultiLlayerVisualizationModel >> addLayer [
 
+
 	| allNewSClasses |
-	
+	1halt.
 	allNewSClasses := self addCacheServerDependencies.
+	serverLayers add: allNewSClasses.
 	self setServerClasses.
 
 	index := index + 1
@@ -141,12 +143,23 @@ MiMultiLlayerVisualizationModel >> buildServiceLayer [
 
 { #category : #building }
 MiMultiLlayerVisualizationModel >> buildUCLayer [
+
 	^ MiLVFlowBoxNode new
 		  dashedBorder;
-		  name: 'UC: ' , (serverLayers at: 1) size asString , ' classes';
+		  name: 'UC';
 		  gapSize: 80;
-		  addAll: (self entitiesOf: (serverLayers at: 1));
+		  addAll: self buildUCLayers;
 		  yourself
+]
+
+{ #category : #building }
+MiMultiLlayerVisualizationModel >> buildUCLayers [
+
+	^ self serverLayers collect: [ :layer | 
+		  MiLVFlowBoxNode new
+			  dashedBorder;
+			  addAll: (self entitiesOf: layer);
+			  yourself ]
 ]
 
 { #category : #partitioning }
@@ -210,13 +223,17 @@ MiMultiLlayerVisualizationModel >> initialize [
 
 	super initialize.
 	daoLayer := Set new.
-	serviceLayer := Set new
+	serviceLayer := Set new.
+	displayStrategy := MiFilterMultiLayerViolationStrategy new
+		                   visualizationModel: self;
+		                   yourself
 ]
 
 { #category : #adding }
 MiMultiLlayerVisualizationModel >> initializeFirstServerLayer [
 
 	| remoteServer |
+	
 	self serverLayers add: Dictionary new.
 	remoteServer := ((FQStringQuery
 		                  property: #name
