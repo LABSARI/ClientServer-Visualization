@@ -62,7 +62,6 @@ MiMultiLlayerVisualizationModel >> addLayer [
 
 
 	| allNewSClasses |
-	1halt.
 	allNewSClasses := self addCacheServerDependencies.
 	serverLayers add: allNewSClasses.
 	self setServerClasses.
@@ -106,6 +105,7 @@ MiMultiLlayerVisualizationModel >> addLayerToServerFromLevel: level [
 
 { #category : #building }
 MiMultiLlayerVisualizationModel >> buildDaoLayer [
+
 	| daosToDisplay |
 	daosToDisplay := displayStrategy fetchViolatingDaos.
 	^ MiLVFlowBoxNode new
@@ -144,7 +144,7 @@ MiMultiLlayerVisualizationModel >> buildServiceLayer [
 { #category : #building }
 MiMultiLlayerVisualizationModel >> buildUCLayer [
 
-	^ MiLVFlowBoxNode new
+	^ MiLVHorizontalBoxNode new
 		  dashedBorder;
 		  name: 'UC';
 		  gapSize: 80;
@@ -155,7 +155,7 @@ MiMultiLlayerVisualizationModel >> buildUCLayer [
 { #category : #building }
 MiMultiLlayerVisualizationModel >> buildUCLayers [
 
-	^ self serverLayers collect: [ :layer | 
+	^ displayStrategy fetchViolatingServers collect: [ :layer | 
 		  MiLVFlowBoxNode new
 			  dashedBorder;
 			  addAll: (self entitiesOf: layer);

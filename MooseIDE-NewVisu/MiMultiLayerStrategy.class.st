@@ -23,6 +23,12 @@ MiMultiLayerStrategy >> fetchViolatingEntities [
 ]
 
 { #category : #filtering }
+MiMultiLayerStrategy >> fetchViolatingServers [
+	
+	^ self subclassResponsibility
+]
+
+{ #category : #filtering }
 MiMultiLayerStrategy >> fetchViolatingServices [
 
 	^ self subclassResponsibility
