@@ -9,23 +9,6 @@ Class {
 	#category : #'MooseIDE-NewVisu-Roassal-builder'
 }
 
-{ #category : #visiting }
-MiLayerVisualizationBuilder >> addDependenciesTo: anHNode [
-
-	| class |
-	class := anHNode rawModel.
-	(class allProviders collectAsSet: [ :p | mapModel rootClass: p ]) 
-		do: [ :c | 
-			visitHNodeCache
-				at: c
-				ifPresent: [ :node | anHNode dependencyTo: node ] ].
-	(class allClients collectAsSet: [ :client | 
-		 mapModel rootClass: client ]) do: [ :c | 
-		visitHNodeCache
-			at: c
-			ifPresent: [ :node | node dependencyTo: anHNode ] ]
-]
-
 { #category : #building }
 MiLayerVisualizationBuilder >> addNextLevelButton [
 
@@ -54,6 +37,8 @@ MiLayerVisualizationBuilder >> build [
 
 	self visit: mapModel buildDescription.
 
+	mapModel createLinksIn: visitHNodeCache.
+
 	self addNextLevelButton.
 
 	self renderIn: self container.
@@ -73,7 +58,6 @@ MiLayerVisualizationBuilder >> createAndStoreHNodeFor: anLVElement [
 	| hn |
 	hn := self createHNodeFor: anLVElement.
 	visitHNodeCache at: anLVElement model put: hn.
-	self addDependenciesTo: hn.
 	^ hn
 ]
 
@@ -96,8 +80,8 @@ MiLayerVisualizationBuilder >> createHNodeFor: anLVElement [
 MiLayerVisualizationBuilder >> createHNodeForPackage: aPackageElement [
 
 	^ (self createHNodeFor: aPackageElement)
-		  children:
-			  (aPackageElement children collect: [ :c | self createAndStoreHNodeFor: c ]);
+		  addAll: (aPackageElement children collect: [ :c | 
+					   self createAndStoreHNodeFor: c ]);
 		  yourself
 ]
 
@@ -113,27 +97,13 @@ MiLayerVisualizationBuilder >> mapModel: anObject [
 	mapModel := anObject
 ]
 
-{ #category : #visiting }
-MiLayerVisualizationBuilder >> rsShapeFor: childrenNodes withRSLayout: aRoassalLayout [
-
-	| group layoutChildrenNodes |
-	layoutChildrenNodes := OrderedCollection new.
-	group := RSGroup new.
-
-	childrenNodes do: [ :c | group add: (c acceptVisitor: self) ].
-
-	aRoassalLayout on: group.
-
-	^ group asShape
-]
-
 { #category : #building }
 MiLayerVisualizationBuilder >> updateBuild [
 
 	self container shapes do: #remove.
 	description := mapModel buildDescription.
 	self visit: description.
-
+	mapModel createLinksIn: visitHNodeCache.
 	self renderIn: self container.
 	^ self container
 ]
@@ -156,7 +126,7 @@ MiLayerVisualizationBuilder >> visitBox: aMiNVBoxNode withRSLayout: aRoassalLayo
 				          borderDashArray: #( 5 10 );
 				          yourself);
 		         color: Color transparent;
-		         children:
+		         addAll:
 		         (aMiNVBoxNode children collect: [ :c | 
 			          c acceptVisitor: self ]);
 		         yourself.
@@ -175,6 +145,7 @@ MiLayerVisualizationBuilder >> visitHorizontalBox: aMiNVBoxNode [
 	^ self
 		  visitBox: aMiNVBoxNode
 		  withRSLayout: (RSHorizontalLineLayout new
+				   gapSize: aMiNVBoxNode gapSize;
 				   alignMiddle;
 				   yourself)
 ]
@@ -183,20 +154,6 @@ MiLayerVisualizationBuilder >> visitHorizontalBox: aMiNVBoxNode [
 MiLayerVisualizationBuilder >> visitPackageElement: aPackageElement [
 
 	^ self createHNodeForPackage: aPackageElement
-]
-
-{ #category : #visiting }
-MiLayerVisualizationBuilder >> visitQueryNode: aMiNVQueryNode [
-
-	| nodes group |
-	nodes := aMiNVQueryNode query value collect: [ :i | 
-		         HNode new
-			         rawModel: i;
-			         name: i name;
-			         yourself ].
-	group := nodes collect: [ :node | self shapeFor: node ] as: RSGroup.
-	(self roassalLayout: aMiNVQueryNode layout) on: group.
-	^ group asShape
 ]
 
 { #category : #visiting }
@@ -211,6 +168,7 @@ MiLayerVisualizationBuilder >> visitVerticalBox: aMiNVBoxNode [
 	^ self
 		  visitBox: aMiNVBoxNode
 		  withRSLayout: (RSVerticalLineLayout new
+				   gapSize: aMiNVBoxNode gapSize;
 				   alignCenter;
 				   yourself)
 ]

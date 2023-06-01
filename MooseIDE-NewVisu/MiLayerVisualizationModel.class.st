@@ -186,6 +186,12 @@ MiLayerVisualizationModel >> commonPackagesFor: elements [
 ]
 
 { #category : #building }
+MiLayerVisualizationModel >> createLinksIn: hNodeDict [
+
+	self subclassResponsibility
+]
+
+{ #category : #building }
 MiLayerVisualizationModel >> createPackageElement: famixPackage with: elements [
 
 	^ MiLVPackageElement new

@@ -8,7 +8,11 @@ Class {
 MiFilterMultiLayerViolationStrategy >> fetchViolatingDaos [
 
 	^ visualizationModel daoLayer select: [ :dao | 
-		  dao hasTagNamed: 'daoViolation' ]
+		  ((visualizationModel classDependenciesFor: dao) anySatisfy: [ :c | 
+			   (visualizationModel serviceLayer includes: c) or: [ 
+				   visualizationModel serverLayers flatten includes: c ] ]) or: [ 
+			  (visualizationModel classDependantsFor: dao) anySatisfy: [ :c | 
+				  visualizationModel serverLayers flatten includes: c ] ] ]
 ]
 
 { #category : #filtering }
@@ -22,7 +26,8 @@ MiFilterMultiLayerViolationStrategy >> fetchViolatingServers [
 MiFilterMultiLayerViolationStrategy >> fetchViolatingServices [
 
 	^ visualizationModel serviceLayer reject: [ :service | 
-		  service hasTagNamed: 'serviceNoViolation' ]
+		  (visualizationModel classDependantsFor: service) noneSatisfy: [ :c | 
+			  visualizationModel serverLayers first includes: c ] ]
 ]
 
 { #category : #filtering }

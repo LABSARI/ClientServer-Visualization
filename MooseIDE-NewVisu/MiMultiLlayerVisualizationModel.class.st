@@ -6,7 +6,10 @@ Class {
 		'implAndIntViolation',
 		'serviceTag',
 		'serviceLayer',
-		'daoLayer'
+		'daoLayer',
+		'serverLayersToDisplay',
+		'serviceLayerToDisplay',
+		'daoLayerToDisplay'
 	],
 	#category : #'MooseIDE-NewVisu-Model'
 }
@@ -60,10 +63,10 @@ MiMultiLlayerVisualizationModel >> addDependenciesToServicesAndTag [
 { #category : #adding }
 MiMultiLlayerVisualizationModel >> addLayer [
 
-
 	| allNewSClasses |
 	allNewSClasses := self addCacheServerDependencies.
-	serverLayers add: allNewSClasses.
+	serverLayers add: (allNewSClasses reject: [ :c | 
+			 (serviceLayer includes: c) or: [ daoLayer includes: c ] ]).
 	self setServerClasses.
 
 	index := index + 1
@@ -106,13 +109,13 @@ MiMultiLlayerVisualizationModel >> addLayerToServerFromLevel: level [
 { #category : #building }
 MiMultiLlayerVisualizationModel >> buildDaoLayer [
 
-	| daosToDisplay |
-	daosToDisplay := displayStrategy fetchViolatingDaos.
+	daoLayerToDisplay := displayStrategy fetchViolatingDaos.
 	^ MiLVFlowBoxNode new
 		  dashedBorder;
-		  name: 'Dao: ' , daosToDisplay size asString , ' classes';
+		  name: 'Dao: ' , daoLayerToDisplay size asString , '/'
+			  , daoLayer size asString , ' classes';
 		  gapSize: 80;
-		  addAll: (self entitiesOf: daosToDisplay);
+		  addAll: (self entitiesOf: daoLayerToDisplay);
 		  yourself
 ]
 
@@ -131,13 +134,13 @@ MiMultiLlayerVisualizationModel >> buildDescription [
 { #category : #building }
 MiMultiLlayerVisualizationModel >> buildServiceLayer [
 
-	| serviceToDisplay |
-	serviceToDisplay := displayStrategy fetchViolatingServices.
+	serviceLayerToDisplay := displayStrategy fetchViolatingServices.
 	^ MiLVFlowBoxNode new
 		  dashedBorder;
-		  name: 'Service: ' , serviceToDisplay size asString , ' classes';
+		  name: 'Service: ' , serviceLayerToDisplay size asString , '/'
+			  , serviceLayer size asString , ' classes';
 		  gapSize: 80;
-		  addAll: (self entitiesOf: serviceToDisplay);
+		  addAll: (self entitiesOf: serviceLayerToDisplay);
 		  yourself
 ]
 
@@ -155,16 +158,46 @@ MiMultiLlayerVisualizationModel >> buildUCLayer [
 { #category : #building }
 MiMultiLlayerVisualizationModel >> buildUCLayers [
 
-	^ displayStrategy fetchViolatingServers collect: [ :layer | 
-		  MiLVFlowBoxNode new
-			  dashedBorder;
-			  addAll: (self entitiesOf: layer);
-			  yourself ]
+	^ (serverLayersToDisplay := displayStrategy fetchViolatingServers) 
+		  collectWithIndex: [ :layer :i | 
+			  MiLVFlowBoxNode new
+				  dashedBorder;
+				  name:
+					  layer size asString , '/' , (serverLayers at: i) size asString
+					  , ' classes';
+				  addAll: (self entitiesOf: layer);
+				  yourself ]
 ]
 
 { #category : #partitioning }
 MiMultiLlayerVisualizationModel >> checkIsImplementationOrService: aClass [
 	^ self checkIsImplementation: aClass 
+]
+
+{ #category : #building }
+MiMultiLlayerVisualizationModel >> createLinksIn: hNodeDict [
+
+	"The hNodeDict is a dictionary containing hnodes as values and famix classes as keys."
+
+	| serverLayer |
+	serverLayer := serverLayersToDisplay flatten asSet.
+	daoLayerToDisplay do: [ :dao | 
+		| hn |
+		hn := hNodeDict at: dao.
+
+		"Create links between DAO layer and service layer, in that direction."
+		((self classDependenciesFor: dao) select: [ :d | 
+			 (serviceLayerToDisplay includes: d) or: [ serverLayer includes: d ] ]) 
+			do: [ :dc | 
+				| dhn |
+				dhn := hNodeDict at: dc.
+				hn dependencyTo: dhn ].
+		"Create links between UC layer and DAO layer, in that direction."
+		((self classDependantsFor: dao) select: [ :d | 
+			 serverLayer includes: d ]) do: [ :dc | 
+			| dhn |
+			dhn := hNodeDict at: dc.
+			dhn dependencyTo: hn ] ]
 ]
 
 { #category : #queries }
@@ -190,6 +223,12 @@ MiMultiLlayerVisualizationModel >> daoLayer [
 MiMultiLlayerVisualizationModel >> daoLayer: anObject [
 
 	daoLayer := anObject
+]
+
+{ #category : #accessing }
+MiMultiLlayerVisualizationModel >> daoLayerToDisplay [
+
+	^ daoLayerToDisplay
 ]
 
 { #category : #accessing }
@@ -275,6 +314,12 @@ MiMultiLlayerVisualizationModel >> mooseModel: aMooseModel [
 ]
 
 { #category : #accessing }
+MiMultiLlayerVisualizationModel >> serverLayersToDisplay [
+
+	^ serverLayersToDisplay
+]
+
+{ #category : #accessing }
 MiMultiLlayerVisualizationModel >> serviceLayer [
 
 	^ serviceLayer
@@ -284,4 +329,10 @@ MiMultiLlayerVisualizationModel >> serviceLayer [
 MiMultiLlayerVisualizationModel >> serviceLayer: anObject [
 
 	serviceLayer := anObject
+]
+
+{ #category : #accessing }
+MiMultiLlayerVisualizationModel >> serviceLayerToDisplay [
+
+	^ serviceLayerToDisplay
 ]
