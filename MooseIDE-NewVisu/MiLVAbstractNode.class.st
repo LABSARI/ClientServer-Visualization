@@ -1,6 +1,9 @@
 Class {
 	#name : #MiLVAbstractNode,
 	#superclass : #Object,
+	#instVars : [
+		'expanded'
+	],
 	#category : #'MooseIDE-NewVisu-Model'
 }
 
@@ -10,8 +13,27 @@ MiLVAbstractNode >> acceptVisitor: aVisitor [
 	self subclassResponsibility
 ]
 
-{ #category : #testing }
-MiLVAbstractNode >> hasMultipleNodes [
+{ #category : #initialization }
+MiLVAbstractNode >> collapse [
 
-	^ false
+	expanded := false
+]
+
+{ #category : #initialization }
+MiLVAbstractNode >> expand [
+
+	expanded := true
+]
+
+{ #category : #initialization }
+MiLVAbstractNode >> expanded [
+
+	^ expanded
+]
+
+{ #category : #initialization }
+MiLVAbstractNode >> initialize [
+
+	super initialize.
+	expanded := true.
 ]
