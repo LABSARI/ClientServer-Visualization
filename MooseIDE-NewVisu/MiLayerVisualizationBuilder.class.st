@@ -86,6 +86,46 @@ MiLayerVisualizationBuilder >> createHNodeForPackage: aPackageElement [
 ]
 
 { #category : #accessing }
+MiLayerVisualizationBuilder >> highlightable [
+
+	^ highlightable ifNil: [ 
+		  highlightable := RSHighlightable new
+			                   highlightShapes: [ :shape | 
+				                   | list |
+				                   list := shape connectedLines copy.
+				                   list add: (shape propertyAt: #background).
+				                   list ];
+			                   when: RSHighlightEvent do: [ :evt | 
+				                   evt shape isNode
+					                   ifTrue: [ 
+						                   highlightable
+							                   record: evt shape
+							                   selector: #border
+							                   value: (RSBorder new
+									                    color: (Color fromHexString: 'FF7F00');
+									                    width: 3;
+									                    yourself) ]
+					                   ifFalse: [ 
+					                   highlightable
+						                   record: evt shape
+						                   selector: #color
+						                   value: Color red ] ]
+			                   for: self;
+			                   when: RSUnHighlightEvent do: [ :evt | 
+				                   evt shape isNode
+					                   ifTrue: [ 
+					                   highlightable
+						                   restore: evt shape
+						                   selector: #border ]
+					                   ifFalse: [ 
+					                   highlightable
+						                   restore: evt shape
+						                   selector: #color ] ]
+			                   for: self;
+			                   yourself ]
+]
+
+{ #category : #accessing }
 MiLayerVisualizationBuilder >> mapModel [
 
 	^ mapModel
@@ -105,6 +145,7 @@ MiLayerVisualizationBuilder >> updateBuild [
 	self visit: description.
 	mapModel createLinksIn: visitHNodeCache.
 	self renderIn: self container.
+	self container signalUpdate.
 	^ self container
 ]
 
@@ -123,13 +164,16 @@ MiLayerVisualizationBuilder >> visitBox: aMiNVBoxNode withRSLayout: aRoassalLayo
 		         name: aMiNVBoxNode name;
 		         layout: aRoassalLayout;
 		         style: (HBorderAndTitleStyle new
-				          borderDashArray: #( 5 10 );
+				          borderDashArray: #( 4 6 );
 				          yourself);
 		         color: Color transparent;
 		         addAll:
 		         (aMiNVBoxNode children collect: [ :c | 
 			          c acceptVisitor: self ]);
 		         yourself.
+	aMiNVBoxNode expanded
+		ifTrue: [ hNode expand ]
+		ifFalse: [ hNode collapse ].
 	^ hNode
 ]
 
