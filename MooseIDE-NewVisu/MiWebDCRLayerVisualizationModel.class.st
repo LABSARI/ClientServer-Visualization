@@ -249,6 +249,25 @@ MiWebDCRLayerVisualizationModel >> createDTOBox [
 		  yourself
 ]
 
+{ #category : #building }
+MiWebDCRLayerVisualizationModel >> createLinksIn: hNodeDict [
+
+	| cls |
+	cls := clientLayers flatten , serverLayers flatten.
+	cls do: [ :c | 
+		hNodeDict at: c ifPresent: [ :n | 
+			(self classDependantsFor: c) do: [ :d | 
+				hNodeDict
+					at: d
+					ifPresent: [ :hn | 
+					(cls includes: d) ifFalse: [ hn dependencyTo: n ] ] ].
+			(self classDependenciesFor: c) do: [ :d | 
+				hNodeDict
+					at: d
+					ifPresent: [ :hn | 
+					(cls includes: d) ifFalse: [ n dependencyTo: hn ] ] ] ] ]
+]
+
 { #category : #accessing }
 MiWebDCRLayerVisualizationModel >> createPackageElement: famixPackage with: elements [
 
@@ -272,6 +291,7 @@ MiWebDCRLayerVisualizationModel >> descriptionBoxFor: aCollection with: aName [
 
 	^ MiLVFlowBoxNode new
 		  dashedBorder;
+		  collapse;
 		  name: aName , aCollection size asString;
 		  gapSize: 80;
 		  addAll: aCollection;
