@@ -2,7 +2,8 @@ Class {
 	#name : #MiLVAbstractNode,
 	#superclass : #Object,
 	#instVars : [
-		'expanded'
+		'expanded',
+		'parent'
 	],
 	#category : #'MooseIDE-NewVisu-Model'
 }
@@ -17,6 +18,13 @@ MiLVAbstractNode >> acceptVisitor: aVisitor [
 MiLVAbstractNode >> collapse [
 
 	expanded := false
+]
+
+{ #category : #accessing }
+MiLVAbstractNode >> depth [
+
+	parent ifNil: [ ^ 0 ].
+	^ 1 + parent depth
 ]
 
 { #category : #initialization }
@@ -36,4 +44,16 @@ MiLVAbstractNode >> initialize [
 
 	super initialize.
 	expanded := true.
+]
+
+{ #category : #accessing }
+MiLVAbstractNode >> parent [
+
+	^ parent
+]
+
+{ #category : #accessing }
+MiLVAbstractNode >> parent: anObject [
+
+	parent := anObject
 ]
