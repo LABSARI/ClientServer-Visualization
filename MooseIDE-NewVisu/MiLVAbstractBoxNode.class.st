@@ -13,12 +13,14 @@ Class {
 { #category : #adding }
 MiLVAbstractBoxNode >> add: aNode [
 
+	aNode parent: self.
 	children add: aNode
 ]
 
 { #category : #adding }
 MiLVAbstractBoxNode >> addAll: aCollectionOfNodes [
 
+	aCollectionOfNodes do: [ :n | n parent: self ].
 	children addAll: aCollectionOfNodes
 ]
 
