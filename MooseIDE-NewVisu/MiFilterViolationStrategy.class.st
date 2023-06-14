@@ -53,19 +53,19 @@ MiFilterViolationStrategy >> fetchNotSharedDTOs [
 { #category : #filtering }
 MiFilterViolationStrategy >> fetchViolatingClients [
 
-	| outgoingCache  violatingClient |
+	| outgoingCache incomingCache |
 	outgoingCache := visualizationModel outgoingCache.
+	incomingCache := visualizationModel incomingCache.
 
-	violatingClient := OrderedCollection new.
-	visualizationModel clientLayers do: [ :sl | 
-		| ve |
-		ve := Set new.
-		visualizationModel purgatoryLayer do: [ :pc | 
-			ve addAll: ((outgoingCache at: pc) intersection: sl) ].
-		violatingClient add: ve ].
-"	violatingClient flatten do: [ :vs | vs tagWithName: 'ClientViolation' ]."
 
-	^ violatingClient
+	^ visualizationModel clientLayers collect: [ :sl | 
+		  sl selectAsSet: [ :c | 
+			  | in out |
+			  out := outgoingCache at: c ifAbsent: [ OrderedCollection new ].
+			  in := incomingCache at: c ifAbsent: [ OrderedCollection new ].
+			  out , in anySatisfy: [ :p | 
+				  (visualizationModel purgatoryLayer includes: p) or: [ 
+					  visualizationModel sharedLayer includes: p ] ] ] ]
 ]
 
 { #category : #filtering }
