@@ -4,7 +4,9 @@ Class {
 	#instVars : [
 		'mapModel',
 		'visitHNodeCache',
-		'description'
+		'description',
+		'highlightShapes',
+		'colorScale'
 	],
 	#category : #'MooseIDE-NewVisu-Roassal-builder'
 }
@@ -13,21 +15,34 @@ Class {
 MiLayerVisualizationBuilder >> addNextLevelButton [
 
 	| next |
-	
-	next := RSLabel new
-		        fontSize: 20;
-		        text: 'Add level';
-		        color: (Color fromHexString: '67001F');
-		        yourself.
-
-	next translateBy: 55 @ 15.
+	next := RSComposite new.
+	next
+		add: (RSLabel new
+				 fontSize: 12;
+				 text: 'ADD LEVEL';
+				 color: Color black;
+				 yourself);
+		border: (RSBorder new
+				 color: (Color fromHexString: '88888899');
+				 yourself);
+		color: (Color fromHexString: 'AAAAAA33').
+	next @ (RSHighlightable new
+		 highlightColor: (Color fromHexString: 'AAAAAA99');
+		 yourself).
+	next
+		adjustToChildren;
+		padding: 5.
+	next translateBy: next width / 2 + 10 @ (next height / 2 + 10).
 	self container add: next.
-	
+
 	next setAsFixed.
-	
-	next when: RSMouseClick do: [ 
-		mapModel addLayer.
-		self updateBuild ]
+
+	next
+		when: RSMouseClick
+		do: [ 
+			mapModel addLayer.
+			self updateBuild ]
+		for: self
 ]
 
 { #category : #building }
@@ -125,6 +140,68 @@ MiLayerVisualizationBuilder >> highlightable [
 			                   yourself ]
 ]
 
+{ #category : #visiting }
+MiLayerVisualizationBuilder >> highlightableLinkedShapes [
+
+	^ highlightShapes ifNil: [ 
+		  highlightShapes := RSHighlightable new
+			                     highlightShapes: [ :shape | 
+				                     | list |
+				                     list := Set new.
+				                     shape connectedLines do: [ :line | 
+						                     shape = line from
+							                     ifTrue: [ 
+								                     list add:
+										                     (line to propertyAt: #background) ]
+							                     ifFalse: [ 
+								                     list add:
+										                     (line from propertyAt: #background) ] ].
+				                     list asOrderedCollection ];
+			                     when: RSHighlightEvent do: [ :evt | 
+				                     | color |
+				                     color := Color fromHexString: '9DD0B3'.
+				                     highlightable
+					                     record: evt shape
+					                     selector: #color
+					                     value: color ]
+			                     for: self;
+			                     when: RSUnHighlightEvent
+			                     do: [ :evt | 
+				                     highlightable
+					                     restore: evt shape
+					                     selector: #color ]
+			                     for: self;
+			                     yourself ]
+]
+
+{ #category : #initialization }
+MiLayerVisualizationBuilder >> initialize [
+
+	super initialize.
+	colorScale := NSScale linear
+		              domain: #( 1 5 );
+		              range: { 
+				              (Color fromHexString: 'E8E8E8').
+				              (Color fromHexString: '7C7C7C') };
+		              yourself
+]
+
+{ #category : #visiting }
+MiLayerVisualizationBuilder >> layoutHStyle [
+
+	^ HBoxNodeStyle new
+		  borderDashArray: #( 4 6 );
+		  yourself
+]
+
+{ #category : #building }
+MiLayerVisualizationBuilder >> layoutOn: aGroupOfShapes parent: shape [
+
+	aGroupOfShapes ifEmpty: [ ^ self ].
+
+	self relayout: (aGroupOfShapes reject: #isFixed) parent: shape
+]
+
 { #category : #accessing }
 MiLayerVisualizationBuilder >> mapModel [
 
@@ -135,6 +212,33 @@ MiLayerVisualizationBuilder >> mapModel [
 MiLayerVisualizationBuilder >> mapModel: anObject [
 
 	mapModel := anObject
+]
+
+{ #category : #building }
+MiLayerVisualizationBuilder >> nodeAnnouncer [
+
+	"plug new events here"
+
+	baseNode ifNotNil: [ ^ baseNode announcer ].
+	baseNode := RSComposite new
+		            @ self popup;
+		            @ self menuInteraction;
+		            @ self highlightable;
+		            @ RSNodeOnTopWhenPositionChanged new;
+		            @ HUpdateSelectionBox new;
+		            @ self highlightableLinkedShapes;
+		            yourself.
+	^ baseNode announcer
+]
+
+{ #category : #rendering }
+MiLayerVisualizationBuilder >> renderLinesIn: aCanvas [
+
+	self lineBuilder
+		canvas: aCanvas;
+		color: Color red translucent;
+		shapes: shapes;
+		connectFromAll: #dependentsFromLinks
 ]
 
 { #category : #building }
@@ -163,13 +267,11 @@ MiLayerVisualizationBuilder >> visitBox: aMiNVBoxNode withRSLayout: aRoassalLayo
 	hNode := HNode new
 		         name: aMiNVBoxNode name;
 		         layout: aRoassalLayout;
-		         style: (HBorderAndTitleStyle new
-				          borderDashArray: #( 4 6 );
-				          yourself);
-		         color: Color transparent;
+		         style: self layoutHStyle;
+		         color: ((colorScale scale: aMiNVBoxNode depth) alpha: 0.5);
 		         addAll:
-		         (aMiNVBoxNode children collect: [ :c | 
-			          c acceptVisitor: self ]);
+			         (aMiNVBoxNode children collect: [ :c | 
+					          c acceptVisitor: self ]);
 		         yourself.
 	aMiNVBoxNode expanded
 		ifTrue: [ hNode expand ]
