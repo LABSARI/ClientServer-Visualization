@@ -65,7 +65,6 @@ MiWebDCRLayerVisualizationModel >> addLayer [
 MiWebDCRLayerVisualizationModel >> buildDescription [
 
 
-	
 	(description := MiLVVerticalBoxNode new)
 		withoutBorder;
 		gapSize: 90;
@@ -106,11 +105,12 @@ MiWebDCRLayerVisualizationModel >> buildDescriptionForDTOs [
 ]
 
 { #category : #building }
-MiWebDCRLayerVisualizationModel >> buildMainCentralLayer: aLayer [
+MiWebDCRLayerVisualizationModel >> buildMainCentralLayer: aLayer with: name [
 
 	^ MiLVVerticalBoxNode new
+		  collapse;
 		  dashedBorder;
-		  name: aLayer size asString ;
+		  name: name;
 		  addAll:
 			  ((self createTypeElementsFor: aLayer asOrderedCollection) sort: [ 
 					   :a 
@@ -122,11 +122,11 @@ MiWebDCRLayerVisualizationModel >> buildMainCentralLayer: aLayer [
 MiWebDCRLayerVisualizationModel >> buildMainGroupedLayer: aLayer [
 
 	| entities |
-	
 	entities := self entitiesOf: aLayer asOrderedCollection.
 	^ MiLVFlowBoxNode new
+		  collapse;
 		  dashedBorder;
-		  name: aLayer size asString ;
+		  name: aLayer size asString;
 		  addAll: (entities sort: [ :a :b | a name < b name ]);
 		  yourself
 ]
@@ -134,32 +134,34 @@ MiWebDCRLayerVisualizationModel >> buildMainGroupedLayer: aLayer [
 { #category : #building }
 MiWebDCRLayerVisualizationModel >> buildMainLayer [
 
-	| impls interfaces |
-	impls := self createTypeElementsFor: self implementations.
-	interfaces := self createTypeElementsFor: self interfaces.
-
 	^ MiLVHorizontalBoxNode new
 		  withoutBorder;
 		  gapSize: 90;
 		  add: (MiLVHorizontalBoxNode new
 				   dashedBorder;
+				   gapSize: 50;
 				   name: 'Client';
-				   addAll: (self buildMainLayersFor: (displayStrategy fetchViolatingClients)) reversed;
+				   addAll: (self
+						    buildMainLayersFor: displayStrategy fetchViolatingClients
+						    with: 'Services') reversed;
 				   yourself);
 		  add: (MiLVHorizontalBoxNode new
 				   dashedBorder;
+				   gapSize: 50;
 				   name: 'Server';
-				   addAll: (self buildMainLayersFor: displayStrategy fetchViolatingServers);
+				   addAll: (self
+						    buildMainLayersFor: displayStrategy fetchViolatingServers
+						    with: 'Implementations');
 				   yourself);
 		  yourself
 ]
 
 { #category : #building }
-MiWebDCRLayerVisualizationModel >> buildMainLayersFor: layers [
+MiWebDCRLayerVisualizationModel >> buildMainLayersFor: layers with: name [
 
 	^ (layers withIndexCollect: [ :layer :i | 
 		  i = 1
-			  ifTrue: [ self buildMainCentralLayer: layer ]
+			  ifTrue: [ self buildMainCentralLayer: layer with: name ]
 			  ifFalse: [ 
 				  layer
 					  ifNotEmpty: [ self buildMainGroupedLayer: layer ]
@@ -170,6 +172,7 @@ MiWebDCRLayerVisualizationModel >> buildMainLayersFor: layers [
 MiWebDCRLayerVisualizationModel >> buildPurgatoryLayer [
 
 	^ MiLVFlowBoxNode new
+		  collapse;
 		  dashedBorder;
 		  name: 'Purgatory: ' , purgatoryLayer size asString , ' classes';
 		  addAll: (self entitiesOf: purgatoryLayer);
@@ -473,7 +476,7 @@ MiWebDCRLayerVisualizationModel >> partitionClass: aFamixJavaClass [
 	(self isDTO: aFamixJavaClass) ifTrue: [ ^ self ].
 	(self isPurgatory: aFamixJavaClass) ifTrue: [ ^ self ].
 	
-	(self isClient: aFamixJavaClass) ifTrue: [ 
+	(self isClient: aFamixJavaClass) ifTrue: [
 		self moveFromClientLayerToPurgatory: aFamixJavaClass ].
 	(self isServer: aFamixJavaClass) ifTrue: [ 
 		self moveFromServerLayerToPurgatory: aFamixJavaClass ].
@@ -506,9 +509,9 @@ MiWebDCRLayerVisualizationModel >> removeClass: aFamixJavaClass fromLayer: aLaye
 ]
 
 { #category : #accessing }
-MiWebDCRLayerVisualizationModel >> serverClasses [ 
+MiWebDCRLayerVisualizationModel >> serverClasses [
 
-	^ serverClasses.
+	^ serverClasses
 ]
 
 { #category : #accessing }
