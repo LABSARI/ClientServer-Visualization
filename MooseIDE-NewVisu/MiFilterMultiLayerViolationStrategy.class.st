@@ -25,9 +25,11 @@ MiFilterMultiLayerViolationStrategy >> fetchViolatingServers [
 { #category : #filtering }
 MiFilterMultiLayerViolationStrategy >> fetchViolatingServices [
 
-	^ visualizationModel serviceLayer reject: [ :service | 
-		  (visualizationModel classDependantsFor: service) noneSatisfy: [ :c | 
-			  visualizationModel serverLayers first includes: c ] ]
+	^ visualizationModel serviceLayer select: [ :service | 
+		  ((visualizationModel classDependantsFor: service) anySatisfy: [ :c | 
+			   visualizationModel daoLayer includes: c ]) or: [ 
+			  (visualizationModel classDependenciesFor: service) anySatisfy: [ 
+				  :c | visualizationModel serverLayers flatten includes: c ] ] ]
 ]
 
 { #category : #filtering }

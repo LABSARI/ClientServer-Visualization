@@ -7,18 +7,21 @@ Class {
 { #category : #filtering }
 MiFilterViolationStrategy >> fetchNotSharedDTOs [
 
-	| shared clientLayers serverLayers incomingCache dict clientProviders serverProviders |
+	| shared clientLayers serverLayers incomingCache dict clientProviders serverProviders rootClassBlock |
 	shared := visualizationModel sharedLayer.
-	clientLayers := visualizationModel clientLayers asSet flatten.
-	serverLayers := visualizationModel serverLayers asSet flatten.
+	clientLayers := visualizationModel clientLayers asSet
+		                flatten.
+	serverLayers := visualizationModel serverLayers asSet
+		                flatten.
 	incomingCache := visualizationModel incomingCache.
 	dict := Dictionary new.
 	dict at: #client put: OrderedCollection new.
 	dict at: #server put: OrderedCollection new.
 	dict at: #shared put: OrderedCollection new.
 	dict at: #nothing put: OrderedCollection new.
-	clientProviders := clientLayers flatCollectAsSet: #allProviders.
-	serverProviders := serverLayers flatCollectAsSet: #allProviders.
+	rootClassBlock := [ :c | visualizationModel classDependenciesFor: c ].
+	clientProviders := clientLayers flatCollectAsSet: rootClassBlock.
+	serverProviders := serverLayers flatCollectAsSet: rootClassBlock.
 	shared do: [ :dto | 
 		(clientProviders like: dto)
 			ifNotNil: [ 
@@ -30,59 +33,40 @@ MiFilterViolationStrategy >> fetchNotSharedDTOs [
 					ifNotNil: [ self addDto: dto in: dict atKey: #server ]
 					ifNil: [ self addDto: dto in: dict atKey: #nothing ] ] ].
 
-	"
-		
-		
-		self haltIf: [ 	((clientLayers flatCollectAsSet: #allProviders ) like: dto) isNotNil  ] .
-		incomingCache
-			at: dto
-			ifPresent: [ :incomings | 
-				(incomings anySatisfy: [ :cc | (serverLayers like: cc) isNotNil ])
-					ifTrue: [ 
-						(incomings anySatisfy: [ :cc | (serverLayers like: cc) isNotNil ])
-							ifTrue: [ self addDto: dto in: dict atKey: #shared ]
-							ifFalse: [ self addDto: dto in: dict atKey: #client ] ]
-					ifFalse: [ 
-						(incomings anySatisfy: [ :cc | (serverLayers like: cc) isNotNil ]) 
-							ifTrue: [ self addDto: dto in: dict atKey: #server ] ] ]
-			ifAbsent: [ self addDto: dto in: dict atKey: #nothing ] ]."
-
 	^ dict
 ]
 
 { #category : #filtering }
-MiFilterViolationStrategy >> fetchViolatingClients [
+MiFilterViolationStrategy >> fetchViolating: layers [
 
 	| outgoingCache incomingCache |
 	outgoingCache := visualizationModel outgoingCache.
 	incomingCache := visualizationModel incomingCache.
 
 
-	^ visualizationModel clientLayers collect: [ :sl | 
+	^ layers collect: [ :sl | 
 		  sl selectAsSet: [ :c | 
 			  | in out |
 			  out := outgoingCache at: c ifAbsent: [ OrderedCollection new ].
 			  in := incomingCache at: c ifAbsent: [ OrderedCollection new ].
-			  out , in anySatisfy: [ :p | 
-				  (visualizationModel purgatoryLayer includes: p) or: [ 
-					  visualizationModel sharedLayer includes: p ] ] ] ]
+			  ((visualizationModel classDependenciesFor: c) anySatisfy: [ :pps | 
+				   visualizationModel sharedLayer includes: pps ]) or: [ 
+				  out , in anySatisfy: [ :p | 
+					  (visualizationModel purgatoryLayer includes: p) or: [ 
+						  visualizationModel sharedLayer includes: p ] ] ] ] ]
+]
+
+{ #category : #filtering }
+MiFilterViolationStrategy >> fetchViolatingClients [
+
+
+	^ self fetchViolating:  visualizationModel clientLayers 
 ]
 
 { #category : #filtering }
 MiFilterViolationStrategy >> fetchViolatingServers [
 
-	| incomingCache  violatingServer |
-	incomingCache := visualizationModel incomingCache.
-
-	violatingServer := OrderedCollection new.
-	visualizationModel serverLayers do: [ :sl | | ve |
-		ve := Set new.
-		visualizationModel purgatoryLayer do: [ :pc | 
-			ve addAll: ((incomingCache at: pc) intersection: sl) ].
-		violatingServer add: ve ].
-"	violatingServer flatten do: [ :vs | vs tagWithName: 'ServerViolation' ]."
-
-	^ violatingServer
+	^ self fetchViolating: visualizationModel serverLayers
 ]
 
 { #category : #filtering }

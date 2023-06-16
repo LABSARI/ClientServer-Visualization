@@ -48,17 +48,39 @@ MiWebDCRLayerVisualizationModel >> addCacheServerDependencies [
 ]
 
 { #category : #partitioning }
+MiWebDCRLayerVisualizationModel >> addDependenciesToLastLayers [
+
+	self sharedLayer do: [ :dto | 
+		(self classDependantsFor: dto) do: [ :d | 
+			((self clientLayers last includes: d) or: [ 
+				 self serverLayers last includes: d ]) ifTrue: [ 
+				self addDependency: dto in: incomingCache for: d.
+				self addDependency: d in: outgoingCache for: dto ] ] ].
+
+	self purgatoryLayer do: [ :p | 
+		(self classDependenciesFor: p) do: [ :d | 
+			((self clientLayers last includes: d) or: [ 
+				 self serverLayers last includes: d ]) ifTrue: [ 
+				self addDependency: d in: incomingCache for: p.
+				self addDependency: p in: outgoingCache for: d ] ] ]
+]
+
+{ #category : #partitioning }
 MiWebDCRLayerVisualizationModel >> addLayer [
 
 	| allNewSClasses allNewCClasses |
-	
 	allNewCClasses := self addCacheClientDependencies.
 	allNewSClasses := self addCacheServerDependencies.
-	(allNewCClasses union: allNewSClasses) do: [ :class | self partitionClass: class ].
+	(allNewCClasses union: allNewSClasses) do: [ :class | 
+		self partitionClass: class ].
 	self setClientClasses.
 	self setServerClasses.
 
-	index := index + 1
+
+
+	index := index + 1.
+
+	self addDependenciesToLastLayers
 ]
 
 { #category : #building }
@@ -98,7 +120,7 @@ MiWebDCRLayerVisualizationModel >> buildDescriptionForDTOs [
 
 	dtoNotShared ifNotEmpty: [ 
 		dtoBox add:
-			(self descriptionBoxFor: dtoNotShared with: 'Not shared :') ].
+			(self descriptionBoxFor: dtoNotShared with: 'Not Used:') ].
 
 
 	^ dtoBox
@@ -257,18 +279,23 @@ MiWebDCRLayerVisualizationModel >> createLinksIn: hNodeDict [
 
 	| cls |
 	cls := clientLayers flatten , serverLayers flatten.
+
 	cls do: [ :c | 
 		hNodeDict at: c ifPresent: [ :n | 
-			(self classDependantsFor: c) do: [ :d | 
+			"(self classDependantsFor: c) do: [ :d | 
 				hNodeDict
 					at: d
 					ifPresent: [ :hn | 
-					(cls includes: d) ifFalse: [ hn dependencyTo: n ] ] ].
+					(cls includes: d) ifFalse: [ hn dependencyTo: n ] ] ]."
+			
+			
 			(self classDependenciesFor: c) do: [ :d | 
+				
+				
 				hNodeDict
 					at: d
 					ifPresent: [ :hn | 
-					(cls includes: d) ifFalse: [ n dependencyTo: hn ] ] ] ] ]
+					(cls includes: d) ifFalse: [ n dependencyTo: hn ] ] ] ] ] 
 ]
 
 { #category : #accessing }
@@ -347,9 +374,9 @@ MiWebDCRLayerVisualizationModel >> initialize [
 	displayStrategy := MiFilterViolationStrategy new
 		                   visualizationModel: self;
 		                   yourself.
-		
+
 	clientClasses := Dictionary new.
-	serverClasses := Dictionary new.
+	serverClasses := Dictionary new
 ]
 
 { #category : #partitioning }
@@ -387,7 +414,6 @@ MiWebDCRLayerVisualizationModel >> initializePartitioning [
 	continueClient := true.
 	continueServer := true.
 	index := 1.
-	self addLayer
 ]
 
 { #category : #partitioning }

@@ -25,7 +25,7 @@ MiLayerVisualizationBrowser class >> title [
 	^ 'Multilayer visualization'
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : #'instance creation' }
 MiLayerVisualizationBrowser class >> visualizationBuilder [
 
 	^ MiLayerVisualizationBuilder new

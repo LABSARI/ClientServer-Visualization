@@ -203,14 +203,7 @@ MiMultiLlayerVisualizationModel >> createLinksIn: hNodeDict [
 { #category : #queries }
 MiMultiLlayerVisualizationModel >> dao [
 
-	| sa |
-	sa := (((FQStringQuery
-		         property: #name
-		         comparator: #=
-		         valueToCompare: 'DaoAbstract') runOn: mooseModel allClasses) 
-		       reject: [ :c | c subclassHierarchy isEmpty ]) anyOne.
-
-	^ sa subclassHierarchy
+	^ queriesHolder daos result
 ]
 
 { #category : #accessing }
@@ -246,15 +239,7 @@ MiMultiLlayerVisualizationModel >> daoTag: anObject [
 { #category : #queries }
 MiMultiLlayerVisualizationModel >> eServices [
 
-	| sa |
-	sa := (((FQStringQuery
-		         property: #name
-		         comparator: #=
-		         valueToCompare: 'ServiceAbstract') runOn:
-		        mooseModel allClasses) reject: [ :c | 
-		       c subclassHierarchy isEmpty ]) anyOne.
-
-	^ sa subclassHierarchy
+	^ queriesHolder eServices result
 ]
 
 { #category : #adding }
@@ -263,6 +248,7 @@ MiMultiLlayerVisualizationModel >> initialize [
 	super initialize.
 	daoLayer := Set new.
 	serviceLayer := Set new.
+	queriesHolder := MiEvoQueriesHolder new.
 	displayStrategy := MiFilterMultiLayerViolationStrategy new
 		                   visualizationModel: self;
 		                   yourself
@@ -271,15 +257,10 @@ MiMultiLlayerVisualizationModel >> initialize [
 { #category : #adding }
 MiMultiLlayerVisualizationModel >> initializeFirstServerLayer [
 
-	| remoteServer |
-	
 	self serverLayers add: Dictionary new.
-	remoteServer := ((FQStringQuery
-		                  property: #name
-		                  comparator: #=
-		                  valueToCompare: 'RemoteServer') runOn:
-		                 mooseModel allClasses) anyOne.
-	self serverLayers at: 1 put: remoteServer subclassHierarchy
+	self serverLayers
+		at: 1
+		put: queriesHolder serviceImplementations result
 ]
 
 { #category : #adding }
@@ -305,12 +286,6 @@ MiMultiLlayerVisualizationModel >> initializePartitioning [
 	self addDependenciesToDaoAndTag.
 	self addDependenciesToServicesAndTag.
 	index := 1
-]
-
-{ #category : #accessing }
-MiMultiLlayerVisualizationModel >> mooseModel: aMooseModel [
-
-	mooseModel := aMooseModel
 ]
 
 { #category : #accessing }

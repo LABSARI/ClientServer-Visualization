@@ -18,7 +18,7 @@ MiLayerVisualizationBuilder >> addNextLevelButton [
 	next := RSComposite new.
 	next
 		add: (RSLabel new
-				 fontSize: 12;
+				 fontSize: 13;
 				 text: 'ADD LEVEL';
 				 color: Color black;
 				 yourself);
@@ -236,7 +236,7 @@ MiLayerVisualizationBuilder >> renderLinesIn: aCanvas [
 
 	self lineBuilder
 		canvas: aCanvas;
-		color: Color red translucent;
+		color: (Color red alpha: 0.7);
 		shapes: shapes;
 		connectFromAll: #dependentsFromLinks
 ]

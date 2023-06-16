@@ -310,7 +310,7 @@ MiLayerVisualizationModel >> mooseModel: aMooseModel [
 
 { #category : #partitioning }
 MiLayerVisualizationModel >> moveClass: aClass toSharedfrom: collectionOfDicts [
-
+	
 	| hNode |
 	self flag: 'to modify'.
 	collectionOfDicts do: [ :d | 
@@ -343,8 +343,15 @@ MiLayerVisualizationModel >> purgatoryLayer: anObject [
 { #category : #building }
 MiLayerVisualizationModel >> rootClass: anEntity [
 
-	^ (anEntity atScopeWithProperty: [ :c | 
-		   c isType and: [ c typeContainer isPackage ] ]) anyOne
+	| rootTypes |
+	rootTypes := anEntity atScopeWithProperty: [ :c | 
+		             c isType and: [ c typeContainer isPackage ] ].
+
+	self flag:
+		'This should not be empty, if it happens. It means that there is a problem in the model'.
+	rootTypes ifEmpty: [ ^ anEntity ].
+
+	^ rootTypes anyOne
 ]
 
 { #category : #accessing }
