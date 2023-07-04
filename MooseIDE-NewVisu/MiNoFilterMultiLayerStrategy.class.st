@@ -11,6 +11,12 @@ MiNoFilterMultiLayerStrategy >> fetchViolatingDaos [
 ]
 
 { #category : #filtering }
+MiNoFilterMultiLayerStrategy >> fetchViolatingServers [
+	
+	^ visualizationModel serverLayers
+]
+
+{ #category : #filtering }
 MiNoFilterMultiLayerStrategy >> fetchViolatingServices [
 
 	^ visualizationModel serviceLayer

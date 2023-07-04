@@ -3,7 +3,6 @@ Class {
 	#superclass : #MiAbstractModel,
 	#instVars : [
 		'mooseModel',
-		'settings',
 		'queriesHolder',
 		'description',
 		'index',
@@ -65,6 +64,7 @@ MiLayerVisualizationModel >> checkIsImplementation: aFamixJavaClass [
 
 { #category : #partitioning }
 MiLayerVisualizationModel >> checkIsImplementationOrService: aClass [
+ self subclassResponsibility 
 ]
 
 { #category : #partitioning }
@@ -92,12 +92,6 @@ MiLayerVisualizationModel >> clientLayers [
 ]
 
 { #category : #accessing }
-MiLayerVisualizationModel >> clientLayers: anObject [
-
-	clientLayers := anObject
-]
-
-{ #category : #building }
 MiLayerVisualizationModel >> commonPackagesFor: elements [
 
 	| groups |
@@ -115,7 +109,7 @@ MiLayerVisualizationModel >> createLinksIn: hNodeDict [
 	self subclassResponsibility
 ]
 
-{ #category : #building }
+{ #category : #accessing }
 MiLayerVisualizationModel >> createPackageElement: famixPackage with: elements [
 
 	^ MiLVPackageElement new
@@ -124,25 +118,13 @@ MiLayerVisualizationModel >> createPackageElement: famixPackage with: elements [
 		  yourself
 ]
 
-{ #category : #building }
+{ #category : #accessing }
 MiLayerVisualizationModel >> createTypeElementsFor: aCollectionOfMooseEntities [
 
 	^ aCollectionOfMooseEntities collect: [ :me | 
 		  MiLVTypeElement new
 			  model: me;
 			  yourself ]
-]
-
-{ #category : #accessing }
-MiLayerVisualizationModel >> description [
-
-	^ description
-]
-
-{ #category : #accessing }
-MiLayerVisualizationModel >> description: anObject [
-
-	^ description := anObject
 ]
 
 { #category : #accessing }
@@ -214,12 +196,6 @@ MiLayerVisualizationModel >> purgatoryLayer [
 	^ purgatoryLayer
 ]
 
-{ #category : #accessing }
-MiLayerVisualizationModel >> purgatoryLayer: anObject [
-
-	purgatoryLayer := anObject
-]
-
 { #category : #building }
 MiLayerVisualizationModel >> rootClass: anEntity [
 
@@ -240,12 +216,6 @@ MiLayerVisualizationModel >> serverLayers [
 	^ serverLayers
 ]
 
-{ #category : #accessing }
-MiLayerVisualizationModel >> serverLayers: anObject [
-
-	serverLayers := anObject
-]
-
 { #category : #initialization }
 MiLayerVisualizationModel >> setServerClasses [ 
 
@@ -257,10 +227,4 @@ MiLayerVisualizationModel >> setServerClasses [
 MiLayerVisualizationModel >> sharedLayer [
 
 	^ sharedLayer
-]
-
-{ #category : #accessing }
-MiLayerVisualizationModel >> sharedLayer: anObject [
-
-	sharedLayer := anObject
 ]

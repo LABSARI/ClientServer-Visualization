@@ -11,18 +11,6 @@ MiMultiLayerStrategy >> fetchViolatingDaos [
 ]
 
 { #category : #filtering }
-MiMultiLayerStrategy >> fetchViolatingEntities [
-	
-	| incomingCache serverLayer violatingServer |
-	incomingCache := visualizationModel incomingCache.
-	serverLayer := visualizationModel serverLayers asSet flatten.
-	violatingServer := Set new.
-	
-	visualizationModel purgatoryLayer do: [ :pc |  violatingServer addAll: ((incomingCache at: pc) intersection: serverLayer)].
-	violatingServer do: [ :vs | vs tagWithName: 'ServerViolation'  ]
-]
-
-{ #category : #filtering }
 MiMultiLayerStrategy >> fetchViolatingServers [
 	
 	^ self subclassResponsibility

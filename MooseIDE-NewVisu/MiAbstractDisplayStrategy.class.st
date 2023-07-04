@@ -14,12 +14,6 @@ MiAbstractDisplayStrategy >> addDto: dto in: dict atKey: aSymbol [
 ]
 
 { #category : #accessing }
-MiAbstractDisplayStrategy >> visualizationModel [
-
-	^ visualizationModel
-]
-
-{ #category : #accessing }
 MiAbstractDisplayStrategy >> visualizationModel: anObject [
 
 	visualizationModel := anObject
