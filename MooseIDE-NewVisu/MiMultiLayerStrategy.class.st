@@ -33,3 +33,9 @@ MiMultiLayerStrategy >> fetchViolatingServices [
 
 	^ self subclassResponsibility
 ]
+
+{ #category : #filtering }
+MiMultiLayerStrategy >> fetchViolatingTransverse [
+
+	^ self subclassResponsibility
+]

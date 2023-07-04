@@ -15,3 +15,9 @@ MiNoFilterMultiLayerStrategy >> fetchViolatingServices [
 
 	^ visualizationModel serviceLayer
 ]
+
+{ #category : #filtering }
+MiNoFilterMultiLayerStrategy >> fetchViolatingTransverse [
+
+	^ visualizationModel transverseLayer
+]

@@ -231,6 +231,16 @@ MiLayerVisualizationBuilder >> nodeAnnouncer [
 	^ baseNode announcer
 ]
 
+{ #category : #accessing }
+MiLayerVisualizationBuilder >> rebuildShape: aShape [
+
+	super rebuildShape: aShape.
+	rootNode children do: [ :child | child position: nil ].
+	self layoutOn: self container nodes parent: rootNode.
+	self container zoomToFit.
+	self container signalUpdate
+]
+
 { #category : #rendering }
 MiLayerVisualizationBuilder >> renderLinesIn: aCanvas [
 

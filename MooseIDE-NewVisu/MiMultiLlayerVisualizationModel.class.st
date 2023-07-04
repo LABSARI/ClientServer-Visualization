@@ -9,7 +9,9 @@ Class {
 		'daoLayer',
 		'serverLayersToDisplay',
 		'serviceLayerToDisplay',
-		'daoLayerToDisplay'
+		'daoLayerToDisplay',
+		'transverseLayer',
+		'transverseLayerToDisplay'
 	],
 	#category : #'MooseIDE-NewVisu-Model'
 }
@@ -66,7 +68,8 @@ MiMultiLlayerVisualizationModel >> addLayer [
 	| allNewSClasses |
 	allNewSClasses := self addCacheServerDependencies.
 	serverLayers add: (allNewSClasses reject: [ :c | 
-			 (serviceLayer includes: c) or: [ daoLayer includes: c ] ]).
+			 (serviceLayer includes: c) or: [ 
+				 (daoLayer includes: c) or: [ transverseLayer includes: c ] ] ]).
 	self setServerClasses.
 
 	index := index + 1
@@ -122,12 +125,18 @@ MiMultiLlayerVisualizationModel >> buildDaoLayer [
 { #category : #building }
 MiMultiLlayerVisualizationModel >> buildDescription [
 
-	(description := MiLVHorizontalBoxNode new)
-		withoutBorder;
-		gapSize: 90;
-		add: self buildUCLayer;
-		add: self buildServiceLayer;
-		add: self buildDaoLayer.
+	description := MiLVVerticalBoxNode new
+		               withoutBorder;
+		               gapSize: 90;
+		               add: self buildTransverseLayer;
+		               add: (MiLVHorizontalBoxNode new
+				                withoutBorder;
+				                gapSize: 90;
+				                add: self buildUCLayer;
+				                add: self buildServiceLayer;
+				                add: self buildDaoLayer;
+				                yourself);
+		               yourself.
 	^ description
 ]
 
@@ -141,6 +150,19 @@ MiMultiLlayerVisualizationModel >> buildServiceLayer [
 			  , serviceLayer size asString , ' classes';
 		  gapSize: 80;
 		  addAll: (self entitiesOf: serviceLayerToDisplay);
+		  yourself
+]
+
+{ #category : #building }
+MiMultiLlayerVisualizationModel >> buildTransverseLayer [
+
+	transverseLayerToDisplay := displayStrategy fetchViolatingTransverse .
+	^ MiLVFlowBoxNode new
+		  dashedBorder;
+		  name: 'Transverse: ' , transverseLayerToDisplay size asString , '/'
+			  , transverseLayer size asString , ' classes';
+		  gapSize: 80;
+		  addAll: (self entitiesOf: transverseLayerToDisplay);
 		  yourself
 ]
 
@@ -248,6 +270,7 @@ MiMultiLlayerVisualizationModel >> initialize [
 	super initialize.
 	daoLayer := Set new.
 	serviceLayer := Set new.
+	transverseLayer := Set new.
 	queriesHolder := MiEvoQueriesHolder new.
 	displayStrategy := MiFilterMultiLayerViolationStrategy new
 		                   visualizationModel: self;
@@ -275,7 +298,8 @@ MiMultiLlayerVisualizationModel >> initializeOtherLayers [
 		              color: (Color fromHexString: 'EF8A62');
 		              yourself.
 	self eServices do: [ :c | serviceLayer add: c ].
-	self dao do: [ :c | daoLayer add: c ]
+	self dao do: [ :c | daoLayer add: c ].
+	self transverse do: [ :c | transverseLayer add: c ]
 ]
 
 { #category : #adding }
@@ -286,6 +310,14 @@ MiMultiLlayerVisualizationModel >> initializePartitioning [
 	self addDependenciesToDaoAndTag.
 	self addDependenciesToServicesAndTag.
 	index := 1
+]
+
+{ #category : #testing }
+MiMultiLlayerVisualizationModel >> serverLayersIncludes: aClass [
+
+	serverLayers do: [ :layer | 
+		(layer includes: aClass) ifTrue: [ ^ true ] ].
+	^ false
 ]
 
 { #category : #accessing }
@@ -310,4 +342,22 @@ MiMultiLlayerVisualizationModel >> serviceLayer: anObject [
 MiMultiLlayerVisualizationModel >> serviceLayerToDisplay [
 
 	^ serviceLayerToDisplay
+]
+
+{ #category : #queries }
+MiMultiLlayerVisualizationModel >> transverse [
+
+	^ queriesHolder transverse result
+]
+
+{ #category : #accessing }
+MiMultiLlayerVisualizationModel >> transverseLayer [
+
+	^ transverseLayer
+]
+
+{ #category : #accessing }
+MiMultiLlayerVisualizationModel >> transverseLayer: anObject [
+
+	transverseLayer := anObject
 ]
