@@ -81,40 +81,6 @@ MiMultiLlayerVisualizationModel >> addLayer [
 	index := index + 1
 ]
 
-{ #category : #adding }
-MiMultiLlayerVisualizationModel >> addLayerToServerFromLevel: level [
-
-	| hasAddedSomething newDict currentDict |
-	hasAddedSomething := false.
-	newDict := Dictionary new.
-	currentDict := self serverLayers at: level.
-	currentDict associationsDo: [ :assoc | 
-		| class hNode |
-		class := assoc key.
-		hNode := assoc value.
-		(self classDependenciesFor: class) do: [ :d | 
-			| response |
-			response := self classAlreadyPresent: d.
-			response = #dao ifTrue: [ 
-				| n |
-				n := self dao at: d.
-				d tagWith: daoTag].
-			response = #service ifTrue: [ 
-				hNode dependencyTo: (self eServices at: d) ].
-			response = #free ifTrue: [ 
-				"| newNode |
-				newNode := self buildNodeFromEntity: d.
-				hNode dependencyTo: newNode.
-				newDict at: d put: newNode.
-				hasAddedSomething := true" ].
-			response = #shared ifTrue: [ "hNode dependencyTo: (sharedDict at: d)"
-				 ] ] ].
-	hasAddedSomething ifTrue: [ 
-		self serverLayers add: newDict.
-		^ true ].
-	^ false
-]
-
 { #category : #building }
 MiMultiLlayerVisualizationModel >> buildDaoLayer [
 
@@ -276,30 +242,6 @@ MiMultiLlayerVisualizationModel >> daoLayer [
 	^ daoLayer
 ]
 
-{ #category : #accessing }
-MiMultiLlayerVisualizationModel >> daoLayer: anObject [
-
-	daoLayer := anObject
-]
-
-{ #category : #accessing }
-MiMultiLlayerVisualizationModel >> daoLayerToDisplay [
-
-	^ daoLayerToDisplay
-]
-
-{ #category : #accessing }
-MiMultiLlayerVisualizationModel >> daoTag [
-
-	^ daoTag
-]
-
-{ #category : #accessing }
-MiMultiLlayerVisualizationModel >> daoTag: anObject [
-
-	daoTag := anObject
-]
-
 { #category : #queries }
 MiMultiLlayerVisualizationModel >> eServices [
 
@@ -362,27 +304,9 @@ MiMultiLlayerVisualizationModel >> serverLayersIncludes: aClass [
 ]
 
 { #category : #accessing }
-MiMultiLlayerVisualizationModel >> serverLayersToDisplay [
-
-	^ serverLayersToDisplay
-]
-
-{ #category : #accessing }
 MiMultiLlayerVisualizationModel >> serviceLayer [
 
 	^ serviceLayer
-]
-
-{ #category : #accessing }
-MiMultiLlayerVisualizationModel >> serviceLayer: anObject [
-
-	serviceLayer := anObject
-]
-
-{ #category : #accessing }
-MiMultiLlayerVisualizationModel >> serviceLayerToDisplay [
-
-	^ serviceLayerToDisplay
 ]
 
 { #category : #queries }
@@ -395,10 +319,4 @@ MiMultiLlayerVisualizationModel >> transverse [
 MiMultiLlayerVisualizationModel >> transverseLayer [
 
 	^ transverseLayer
-]
-
-{ #category : #accessing }
-MiMultiLlayerVisualizationModel >> transverseLayer: anObject [
-
-	transverseLayer := anObject
 ]
