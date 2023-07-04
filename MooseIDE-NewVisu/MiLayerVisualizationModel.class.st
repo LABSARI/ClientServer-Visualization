@@ -68,16 +68,6 @@ MiLayerVisualizationModel >> checkIsImplementationOrService: aClass [
 ]
 
 { #category : #partitioning }
-MiLayerVisualizationModel >> classAlreadyPresent: aClass [
-
-	self clientLayers do: [ :d | d at: aClass ifPresent: [ ^ #client ] ].
-	self serverLayers do: [ :d | d at: aClass ifPresent: [ ^ #server ] ].
-	self sharedLayer at: aClass ifPresent: [ ^ #shared ].
-	self purgatoryLayer at: aClass ifPresent: [ ^ #purgatory ].
-	^ #free
-]
-
-{ #category : #partitioning }
 MiLayerVisualizationModel >> classDependantsFor: aClass [
 
 	^ ((aClass queryAllIncoming withoutSelfLoops reject: [ :a | 
