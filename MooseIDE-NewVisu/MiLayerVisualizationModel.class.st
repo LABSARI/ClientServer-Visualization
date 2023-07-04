@@ -21,6 +21,21 @@ Class {
 	#category : #'MooseIDE-NewVisu-Model'
 }
 
+{ #category : #'as yet unclassified' }
+MiLayerVisualizationModel class >> findModelApplicableTo: aMooseModel [
+
+	self subclassesDo: [ :modelClass | 
+		(modelClass queriesHolder canBeAppliedOnModel: aMooseModel) ifTrue: [ 
+			^ modelClass ] ].
+	^ nil
+]
+
+{ #category : #'as yet unclassified' }
+MiLayerVisualizationModel class >> queriesHolder [
+
+	self subclassResponsibility
+]
+
 { #category : #adding }
 MiLayerVisualizationModel >> addCacheServerDependencies [
 
@@ -280,7 +295,8 @@ MiLayerVisualizationModel >> initialize [
 	sharedLayer := Set new.
 	purgatoryLayer := Set new.
 	serverLayers := OrderedCollection new.
-	clientLayers := OrderedCollection new
+	clientLayers := OrderedCollection new.
+	queriesHolder := self class queriesHolder new.
 ]
 
 { #category : #initialization }

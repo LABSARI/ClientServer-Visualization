@@ -13,12 +13,6 @@ MiLayerVisualizationBrowser class >> menuItem [
 	^ #MiLayerVisualizationBrowser
 ]
 
-{ #category : #'instance creation' }
-MiLayerVisualizationBrowser class >> newModel [
-
-	^ MiWebDCRLayerVisualizationModel new
-]
-
 { #category : #'world menu' }
 MiLayerVisualizationBrowser class >> title [
 
@@ -40,6 +34,17 @@ MiLayerVisualizationBrowser >> canFollowEntity: anObject [
 { #category : #actions }
 MiLayerVisualizationBrowser >> followEntity: anEntity [
 
+	| mooseModel modelClass |
+	mooseModel := anEntity isMooseModel
+		              ifTrue: [ anEntity ]
+		              ifFalse: [ anEntity mooseModel ].
+
+	modelClass := MiLayerVisualizationModel findModelApplicableTo:
+		              mooseModel.
+	modelClass ifNil: [ ^ self ].
+	specModel := modelClass new
+		             browser: self;
+		             yourself.
 	specModel followEntity: anEntity
 ]
 

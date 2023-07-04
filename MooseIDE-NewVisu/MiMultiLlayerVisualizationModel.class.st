@@ -16,6 +16,12 @@ Class {
 	#category : #'MooseIDE-NewVisu-Model'
 }
 
+{ #category : #initialization }
+MiMultiLlayerVisualizationModel class >> queriesHolder [
+
+	^ MiEvoQueriesHolder
+]
+
 { #category : #adding }
 MiMultiLlayerVisualizationModel >> addDependenciesFrom: sourcesLayer to: targetsLayer execute: aBlock [
 
@@ -307,7 +313,6 @@ MiMultiLlayerVisualizationModel >> initialize [
 	daoLayer := Set new.
 	serviceLayer := Set new.
 	transverseLayer := Set new.
-	queriesHolder := MiEvoQueriesHolder new.
 	displayStrategy := MiFilterMultiLayerViolationStrategy new
 		                   visualizationModel: self;
 		                   yourself

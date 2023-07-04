@@ -7,6 +7,12 @@ Class {
 	#category : #'MooseIDE-NewVisu-Model'
 }
 
+{ #category : #initialization }
+MiWebDCRLayerVisualizationModel class >> queriesHolder [
+
+	^ MiDQueriesHolder 
+]
+
 { #category : #partitioning }
 MiWebDCRLayerVisualizationModel >> add: aFamixJavaClass to: aCollection layer: anInteger [
 
@@ -370,7 +376,6 @@ MiWebDCRLayerVisualizationModel >> implementations [
 MiWebDCRLayerVisualizationModel >> initialize [
 
 	super initialize.
-	queriesHolder := MiDQueriesHolder new.
 	displayStrategy := MiFilterViolationStrategy new
 		                   visualizationModel: self;
 		                   yourself.
