@@ -197,9 +197,7 @@ MiMultiLlayerVisualizationModel >> checkIsImplementationOrService: aClass [
 ]
 
 { #category : #building }
-MiMultiLlayerVisualizationModel >> createLinksIn: hNodeDict [
-
-	"The hNodeDict is a dictionary containing hnodes as values and famix classes as keys."
+MiMultiLlayerVisualizationModel >> createLinksFromDAOIn: hNodeDict [
 
 	| serverLayer |
 	serverLayer := serverLayersToDisplay flatten asSet.
@@ -220,6 +218,44 @@ MiMultiLlayerVisualizationModel >> createLinksIn: hNodeDict [
 			| dhn |
 			dhn := hNodeDict at: dc.
 			dhn dependencyTo: hn ] ]
+]
+
+{ #category : #building }
+MiMultiLlayerVisualizationModel >> createLinksFromServiceIn: hNodeDict [
+	"Create links between service layer and uc layer, in that direction."
+	serviceLayerToDisplay do: [ :service | 
+		| hn |
+		hn := hNodeDict at: service.
+		((self classDependenciesFor: service) select: [ :d | 
+			 serverLayersToDisplay flatten includes: d ]) do: [ :dc | 
+			| dhn |
+			dhn := hNodeDict at: dc.
+			hn dependencyTo: dhn ] ]
+]
+
+{ #category : #building }
+MiMultiLlayerVisualizationModel >> createLinksFromTransverseIn: hNodeDict [
+	"Create links between traverse layer and uc, service or dao layer, in that direction."
+	transverseLayerToDisplay do: [ :traverse | 
+		| hn |
+		hn := hNodeDict at: traverse.
+		((self classDependenciesFor: traverse) select: [ :d | 
+			 (serverLayersToDisplay flatten includes: d) or: [ 
+				 (serviceLayerToDisplay includes: d) or: [ 
+					 daoLayerToDisplay includes: d ] ] ]) do: [ :dc | 
+			| dhn |
+			dhn := hNodeDict at: dc.
+			hn dependencyTo: dhn ] ]
+]
+
+{ #category : #building }
+MiMultiLlayerVisualizationModel >> createLinksIn: hNodeDict [
+
+	"The hNodeDict is a dictionary containing hnodes as values and famix classes as keys."
+
+	self createLinksFromDAOIn: hNodeDict.
+	self createLinksFromServiceIn: hNodeDict.
+	self createLinksFromTransverseIn: hNodeDict
 ]
 
 { #category : #queries }
