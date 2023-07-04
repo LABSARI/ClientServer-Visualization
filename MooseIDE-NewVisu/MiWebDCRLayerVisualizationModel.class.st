@@ -228,12 +228,6 @@ MiWebDCRLayerVisualizationModel >> buildSharedLayer [
 ]
 
 { #category : #partitioning }
-MiWebDCRLayerVisualizationModel >> checkInViolation: aClass [
-
-	
-]
-
-{ #category : #partitioning }
 MiWebDCRLayerVisualizationModel >> checkIsImplementation: aFamixJavaClass [
 
 	^ (self serverLayers at: 1) includes: aFamixJavaClass
@@ -334,18 +328,6 @@ MiWebDCRLayerVisualizationModel >> descriptionBoxFor: aCollection with: aName [
 		  yourself
 ]
 
-{ #category : #building }
-MiWebDCRLayerVisualizationModel >> displayStrategy [
-
-	^ displayStrategy
-]
-
-{ #category : #building }
-MiWebDCRLayerVisualizationModel >> displayStrategy: anObject [
-
-	displayStrategy := anObject
-]
-
 { #category : #queries }
 MiWebDCRLayerVisualizationModel >> dtos [
 
@@ -358,12 +340,6 @@ MiWebDCRLayerVisualizationModel >> entitiesOf: aLayer [
 	^ aLayer size > 100
 		  ifTrue: [ self commonPackagesFor: aLayer ]
 		  ifFalse: [ self createTypeElementsFor: aLayer ]
-]
-
-{ #category : #building }
-MiWebDCRLayerVisualizationModel >> entitiesWithViolationFrom: aDict [
-
-	^ aDict
 ]
 
 { #category : #queries }
@@ -434,14 +410,6 @@ MiWebDCRLayerVisualizationModel >> interfaces [
 ]
 
 { #category : #testing }
-MiWebDCRLayerVisualizationModel >> isAlreadyInVisu: aFamixJavaClass [
-
-	^ (self isClient: aFamixJavaClass) or: [ 
-		  (self isServer: aFamixJavaClass) or: [ 
-			  self isPurgatory: aFamixJavaClass ] ]
-]
-
-{ #category : #testing }
 MiWebDCRLayerVisualizationModel >> isClient:aClass [
 	^ self clientClasses includesKey: aClass
 ]
@@ -449,24 +417,6 @@ MiWebDCRLayerVisualizationModel >> isClient:aClass [
 { #category : #testing }
 MiWebDCRLayerVisualizationModel >> isDTO: aFamixJavaClass [
 	^ sharedLayer includes: aFamixJavaClass 
-]
-
-{ #category : #testing }
-MiWebDCRLayerVisualizationModel >> isInClientPackage: aClass [
-
-	| testBlock |
-	testBlock := [ :p | p name = 'client' ].
-	^ (aClass allAtScope: FamixTPackage until: testBlock) anySatisfy:
-		  testBlock
-]
-
-{ #category : #testing }
-MiWebDCRLayerVisualizationModel >> isInServerPackage: aClass [
-
-	| testBlock |
-	testBlock := [ :p | p name = 'server' ].
-	^ (aClass allAtScope: FamixTPackage until: testBlock) anySatisfy:
-		  testBlock
 ]
 
 { #category : #testing }

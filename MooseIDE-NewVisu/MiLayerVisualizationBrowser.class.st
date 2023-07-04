@@ -48,12 +48,6 @@ MiLayerVisualizationBrowser >> followEntity: anEntity [
 	specModel followEntity: anEntity
 ]
 
-{ #category : #testing }
-MiLayerVisualizationBrowser >> hasSettings [
-
-	^ true
-]
-
 { #category : #initialization }
 MiLayerVisualizationBrowser >> initializeLayout [
 
@@ -91,10 +85,4 @@ MiLayerVisualizationBrowser >> runVisualization [
 		           container: visualization canvas;
 		           yourself.
 	builder build
-]
-
-{ #category : #testing }
-MiLayerVisualizationBrowser >> settings [
-
-	specModel settings open
 ]

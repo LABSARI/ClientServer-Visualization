@@ -49,93 +49,12 @@ MiLayerVisualizationModel >> addCacheServerDependencies [
 ]
 
 { #category : #partitioning }
-MiLayerVisualizationModel >> addDependenciesToShared [
-
-	"Add dependencies to shared from last added layers."
-
-	self sharedLayer associationsDo: [ :a | 
-		(self classDependantsFor: a key) do: [ :c | 
-			(self serverLayers at: index)
-				at: c
-				ifPresent: [ :n | n dependencyTo: a value ] ].
-		(self classDependenciesFor: a key) do: [ :c | 
-			(self clientLayers at: index)
-				at: c
-				ifPresent: [ :n | a value dependencyTo: n ] ] ]
-]
-
-{ #category : #partitioning }
 MiLayerVisualizationModel >> addDependency: valueEntity in: aDictionary for: keyEntity [
 
 	aDictionary
 		at: keyEntity
 		ifPresent: [ :collection | collection add: valueEntity ]
 		ifAbsentPut: [ OrderedCollection with: valueEntity ]
-]
-
-{ #category : #partitioning }
-MiLayerVisualizationModel >> addLayerToClientFromLevel: level [
-
-	| newLayer currentLayer hasAddedSomething |
-	hasAddedSomething := false.
-	newLayer := Set new.
-	currentLayer := self clientLayers at: level.
-
-
-	currentLayer do: [ :class | "outgoings"
-		(self classDependenciesFor: class) do: [ :d | 
-			| response |
-			response := self classAlreadyPresent: d.
-			response = #server ifTrue: [ 
-				(self indexOf: d in: self serverLayers) > 1 ifTrue: [ 
-					self moveClass: d toSharedfrom: self serverLayers ] ] ].
-		"incomings"
-		(self classDependantsFor: class) do: [ :d | 
-			| response |
-			response := self classAlreadyPresent: d.
-			response = #free ifTrue: [ newLayer add: d ].
-			response = #server ifTrue: [ 
-				(self indexOf: d in: self serverLayers) > 1 ifTrue: [ 
-					self moveClass: d toSharedfrom: self serverLayers ] ] ] ].
-	newLayer ifNotEmpty: [ 
-		self clientLayers add: newLayer.
-		^ true ].
-	^ false
-]
-
-{ #category : #partitioning }
-MiLayerVisualizationModel >> addLayerToServerFromLevel: level [
-
-	| newLayer currentLayer |
-	newLayer := Set new.
-	currentLayer := self serverLayers at: level.
-
-	currentLayer associationsDo: [ :assoc | 
-		| class hNode |
-		class := assoc key.
-		hNode := assoc value.
-		(self classDependantsFor: class) do: [ :d | 
-			| response |
-			response := self classAlreadyPresent: d.
-			response = #client ifTrue: [  ] ].
-
-		(self classDependenciesFor: class) do: [ :d | 
-			| response |
-			response := self classAlreadyPresent: d.
-			response = #free ifTrue: [ 
-				| newNode |
-				newNode := self buildNodeFromEntity: d.
-				hNode dependencyTo: newNode.
-				newLayer at: d put: newNode ].
-			response = #client ifTrue: [ 
-				(self indexOf: d in: self clientLayers) > 1 ifTrue: [ 
-					hNode dependencyTo: (self moveClass: d toSharedfrom: self clientLayers) ] ].
-			response = #shared ifTrue: [ "hNode dependencyTo: (sharedDict at: d)"
-				 ] ] ].
-	newLayer ifNotEmpty: [ 
-		self serverLayers add: newLayer.
-		^ true ].
-	^ false
 ]
 
 { #category : #testing }
@@ -237,18 +156,6 @@ MiLayerVisualizationModel >> description: anObject [
 ]
 
 { #category : #accessing }
-MiLayerVisualizationModel >> displayStrategy [
-
-	^ displayStrategy
-]
-
-{ #category : #accessing }
-MiLayerVisualizationModel >> displayStrategy: anObject [
-
-	displayStrategy := anObject
-]
-
-{ #category : #accessing }
 MiLayerVisualizationModel >> entities [
 
 	^ nil
@@ -278,13 +185,6 @@ MiLayerVisualizationModel >> incomingCache [
 	^ incomingCache
 ]
 
-{ #category : #partitioning }
-MiLayerVisualizationModel >> indexOf: aClass in: dicts [
-
-	dicts withIndexDo: [ :d :i | d at: aClass ifPresent: [ ^ i ] ].
-	^ -1
-]
-
 { #category : #initialization }
 MiLayerVisualizationModel >> initialize [
 
@@ -299,18 +199,6 @@ MiLayerVisualizationModel >> initialize [
 	queriesHolder := self class queriesHolder new.
 ]
 
-{ #category : #initialization }
-MiLayerVisualizationModel >> initializeSettings [ 
-
-	settings := super initializeSettings.
-	settings	addItem: (MiCheckboxSettingItem new
-		setValue: true ;
-		label: 'Show client package color.' ;
-		help: '' ;
-		yourself)
-		named: #shouldColor
-]
-
 { #category : #accessing }
 MiLayerVisualizationModel >> mooseModel [
 
@@ -322,20 +210,6 @@ MiLayerVisualizationModel >> mooseModel: aMooseModel [
 
 	mooseModel := aMooseModel.
 	queriesHolder mooseModel: mooseModel
-]
-
-{ #category : #partitioning }
-MiLayerVisualizationModel >> moveClass: aClass toSharedfrom: collectionOfDicts [
-	
-	| hNode |
-	self flag: 'to modify'.
-	collectionOfDicts do: [ :d | 
-		(d removeKey: aClass ifAbsent: [ nil ]) ifNotNil: [ :n | 
-			hNode := n.
-			self purgatoryLayer at: aClass put: hNode.
-			^ hNode ] ].
-
-	^ nil
 ]
 
 { #category : #accessing }
@@ -389,17 +263,6 @@ MiLayerVisualizationModel >> setServerClasses [
 	self serverLayers allButFirst doWithIndex: [ :l :i | l do: [:c | serverClasses at: c put: i + 1]  ] .
 ]
 
-{ #category : #initialization }
-MiLayerVisualizationModel >> settings [
-	^settings
-]
-
-{ #category : #accessing }
-MiLayerVisualizationModel >> settingsChanged: aBoolean [
-
-	aBoolean ifTrue: [ browser runVisualization ]
-]
-
 { #category : #accessing }
 MiLayerVisualizationModel >> sharedLayer [
 
@@ -410,10 +273,4 @@ MiLayerVisualizationModel >> sharedLayer [
 MiLayerVisualizationModel >> sharedLayer: anObject [
 
 	sharedLayer := anObject
-]
-
-{ #category : #initialization }
-MiLayerVisualizationModel >> shouldColor [
-
-	^ settings getItemValue: #shouldColor
 ]
